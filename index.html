@@ -102,6 +102,8 @@ body.kb nav, body.kb .cart{display:none}
 @keyframes lbIn{from{opacity:0}to{opacity:1}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .b-navy{background:#E3EAF5;color:#193E75}
+.prod.off{opacity:.6}.prod.off .thumb{filter:grayscale(1)}
+.soldout{align-self:flex-start;font-size:11px;font-weight:700;color:var(--bad);background:var(--badbg);border-radius:6px;padding:2px 7px}
 .act{cursor:pointer}
 </style>
 </head>
@@ -151,10 +153,16 @@ const saveCart = () => { try { localStorage.setItem("omnis_box_cart", JSON.strin
 async function api(action, extra = {}) {
   const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData: tg ? tg.initData : "", action, ...extra }) });
   const j = await r.json().catch(() => ({ error: "network" }));
-  if (!r.ok) throw Object.assign(new Error(j.error || "error"), { status: r.status, code: j.error });
+  if (!r.ok) throw Object.assign(new Error(j.error || "error"), { status: r.status, code: j.error, data: j });
   return j;
 }
-async function loadCatalog() { if (!S.catalog) S.catalog = (await api("catalog")).products; return S.catalog }
+async function loadCatalog(force) {
+  if (!S.catalog || force || Date.now() - (S.catalogAt || 0) > 5 * 60 * 1000) { S.catalog = (await api("catalog")).products; S.catalogAt = Date.now() }
+  return S.catalog;
+}
+// Остаток склада: null — ещё не сверялось (не ограничиваем), 0 — нет в наличии
+const inStock = (p) => p.stock === null || p.stock === undefined || p.stock > 0;
+const maxQty = (p) => (p.stock === null || p.stock === undefined) ? 99 : Math.min(99, p.stock);
 const prod = (id) => (S.catalog || []).find((p) => p.id == id);
 // Фото: сначала из Billz, при ошибке — резервная копия на GitHub (img/<id>.jpg)
 // Фото из Billz очень большие (≈1920 px PNG) — показываем уменьшенную копию через сервис сжатия wsrv.nl;
@@ -252,7 +260,7 @@ function orderRowAthlete(o) {
 }
 
 async function renderCatalog() {
-  if (!S.catalog) { loading(); try { await loadCatalog() } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить каталог."); return } }
+  if (!S.catalog || Date.now() - (S.catalogAt || 0) > 5 * 60 * 1000) { if (!S.catalog) loading(); try { await loadCatalog() } catch (e) { if (!S.catalog) { $("#app").innerHTML = errBox("Не удалось загрузить каталог."); return } } }
   if (S.me && S.me.hasOrder && !["rejected", "cancelled"].includes(S.me.orderStatus || "")) {
     $("#app").innerHTML = `<div class="center">${ic("box", "#193E75", 48)}<h1 class="h" style="font-size:30px">Бокс за этот месяц уже собран</h1><p class="muted" style="margin:0">Следующий бокс можно собрать в начале нового месяца. Каталог пока можно посмотреть ниже.</p></div><main class="wrap" id="plist" style="gap:8px;padding-bottom:100px"></main><div id="cartbar"></div>`;
     S.browseOnly = true; drawList(); return;
@@ -284,7 +292,11 @@ function stepper(id, q) {
   return `<div class="step"><button data-dec="${id}" aria-label="Меньше">−</button><input data-q="${id}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${q}" aria-label="Количество"><button data-inc="${id}" aria-label="Больше">+</button></div>`;
 }
 function bindSteppers(after) {
-  const setQ = (id, v) => { v = Math.max(0, Math.min(99, v | 0)); if (v) S.cart[id] = v; else delete S.cart[id]; saveCart(); haptic(); after() };
+  const setQ = (id, v) => {
+    const p = prod(id), mx = p ? maxQty(p) : 99;
+    if ((v | 0) > mx && p) { try { tg.showAlert(mx ? `На складе осталось ${mx} шт.` : "Этого товара нет в наличии.") } catch (e) {} }
+    v = Math.max(0, Math.min(mx, v | 0)); if (v) S.cart[id] = v; else delete S.cart[id]; saveCart(); haptic(); after();
+  };
   document.querySelectorAll("[data-inc]").forEach((b) => b.onclick = () => setQ(b.dataset.inc, (S.cart[b.dataset.inc] || 0) + 1));
   document.querySelectorAll("[data-dec]").forEach((b) => b.onclick = () => setQ(b.dataset.dec, (S.cart[b.dataset.dec] || 0) - 1));
   document.querySelectorAll("[data-q]").forEach((i) => {
@@ -297,21 +309,23 @@ function bindSteppers(after) {
 function drawList() {
   const toks = S.q.toLowerCase().replace(/ё/g, "е").split(/\s+/).filter(Boolean);
   const list = S.catalog.filter((p) => (S.browseOnly || ((S.cat === "Все" || p.category === S.cat) && (S.brand === "Все" || p.brand === S.brand))) &&
-    toks.every((t) => `${p.name} ${p.size} ${p.brand}`.toLowerCase().replace(/ё/g, "е").includes(t)));
-  $("#plist").innerHTML = list.length ? list.slice(0, 150).map((p) => { const q = S.cart[p.id] || 0; return `
-    <div class="prod">${thumb(p.id, p.name)}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-      <span class="br">${esc(p.brand)}</span><span class="nm">${esc(p.name)}</span><span class="pr">${esc(p.size)} · ${money(p.price)} сум</span></div>
-      ${S.browseOnly ? "" : q ? stepper(p.id, q) : `<button class="add" data-inc="${p.id}" aria-label="Добавить ${esc(p.name)}">${ic("plus", "#111F32")}</button>`}</div>` }).join("")
+    toks.every((t) => `${p.name} ${p.size} ${p.brand}`.toLowerCase().replace(/ё/g, "е").includes(t)))
+    .sort((a, b) => (inStock(b) ? 1 : 0) - (inStock(a) ? 1 : 0));
+  $("#plist").innerHTML = list.length ? list.slice(0, 150).map((p) => { const q = S.cart[p.id] || 0, ok = inStock(p); return `
+    <div class="prod${ok ? "" : " off"}">${thumb(p.id, p.name)}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+      <span class="br">${esc(p.brand)}</span><span class="nm">${esc(p.name)}</span><span class="pr">${esc(p.size)} · ${money(p.price)} сум</span>${ok ? "" : `<span class="soldout">Нет в наличии</span>`}</div>
+      ${S.browseOnly ? "" : !ok ? (q ? `<button class="add" data-rm="${p.id}" aria-label="Убрать из бокса">${ic("x", "#8C1D18")}</button>` : "") : q ? stepper(p.id, q) : `<button class="add" data-inc="${p.id}" aria-label="Добавить ${esc(p.name)}">${ic("plus", "#111F32")}</button>`}</div>` }).join("")
     + (list.length > 150 ? `<p class="sm muted" style="text-align:center">Показаны первые 150 — уточните поиск</p>` : "")
     : `<div class="card muted">Ничего не найдено</div>`;
-  if (!S.browseOnly) { bindSteppers(drawList); drawCart() }
+  if (!S.browseOnly) { bindSteppers(drawList); document.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => { delete S.cart[b.dataset.rm]; saveCart(); haptic(); drawList() }); drawCart() }
 }
 function cartLines() { return Object.keys(S.cart).map((id) => ({ p: prod(id), q: S.cart[id] })).filter((x) => x.p) }
 function drawCart() {
   const lines = cartLines(), bar = $("#cartbar");
   if (!lines.length) { bar.innerHTML = ""; return }
   const sum = lines.reduce((a, x) => a + x.p.price * x.q, 0), units = lines.reduce((a, x) => a + x.q, 0);
-  bar.innerHTML = `<section class="cart" aria-label="Ваш бокс"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">В боксе: ${lines.length} поз. · ${units} шт</span><span class="num" style="font-size:26px">${money(sum)} сум</span></div>
+  const bad = lines.filter((x) => x.q > maxQty(x.p)).length;
+  bar.innerHTML = `<section class="cart" aria-label="Ваш бокс">${bad ? `<span class="sm" style="color:var(--bad);font-weight:600">${bad} поз. в боксе закончились — уберите или уменьшите их</span>` : ""}<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">В боксе: ${lines.length} поз. · ${units} шт</span><span class="num" style="font-size:26px">${money(sum)} сум</span></div>
     <button class="btn btn-navy" id="next">Перейти к оформлению</button></section>`;
   $("#next").onclick = () => go("checkout");
 }
@@ -344,9 +358,10 @@ function renderCheckout() {
   const drawLines = () => {
     const ls = cartLines();
     if (!ls.length) return go("catalog");
-    $("#lines").innerHTML = ls.map(({ p, q }) => `<div class="item" style="align-items:center"><div style="display:flex;gap:10px;align-items:center;min-width:0">${thumb(p.id, p.name, "thumb sm")}<div style="min-width:0"><div class="n" style="font-size:13px">${esc(p.name)}</div><div class="d">${esc(p.brand)} · ${esc(p.size)} · ${money(p.price)} сум</div></div></div>${stepper(p.id, q)}</div>`).join("")
+    $("#lines").innerHTML = ls.map(({ p, q }) => { const mx = maxQty(p), short = q > mx; return `<div class="item" style="align-items:center"><div style="display:flex;gap:10px;align-items:center;min-width:0">${thumb(p.id, p.name, "thumb sm")}<div style="min-width:0"><div class="n" style="font-size:13px">${esc(p.name)}</div><div class="d">${esc(p.brand)} · ${esc(p.size)} · ${money(p.price)} сум</div>${short ? `<div class="sm" style="color:var(--bad);font-weight:600;margin-top:3px">${mx ? `На складе только ${mx} шт` : "Закончился — уберите из бокса"}</div>` : ""}</div></div>${short && !mx ? `<button class="add" data-rm="${p.id}" aria-label="Убрать">${ic("x", "#8C1D18")}</button>` : stepper(p.id, q)}</div>` }).join("")
       + `<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--light)"><span class="sm muted">${ls.length} поз. · ${ls.reduce((a, x) => a + x.q, 0)} шт</span><span class="num" style="font-size:26px">${money(ls.reduce((a, x) => a + x.p.price * x.q, 0))} сум</span></div>`;
     bindSteppers(drawLines);
+    document.querySelectorAll("#lines [data-rm]").forEach((b) => b.onclick = () => { delete S.cart[b.dataset.rm]; saveCart(); haptic(); drawLines() });
   };
   drawLines();
   const keep = () => { d.phone = $("#ph").value; if ($("#city")) d.city = $("#city").value; if ($("#br")) d.bts_branch = $("#br").value; if ($("#addr")) d.address = $("#addr").value; d.comment = $("#cm").value };
@@ -357,6 +372,7 @@ function renderCheckout() {
     if (d.type === "bts" && (!d.city.trim() || !d.bts_branch.trim())) return alertBox("Укажите город и отделение BTS.");
     if (d.type === "tashkent" && !d.address.trim()) return alertBox("Укажите адрес доставки.");
     const ls = cartLines();
+    if (ls.some((x) => x.q > maxQty(x.p))) return alertBox("В боксе есть товары, которых не хватает на складе. Уберите или уменьшите их — они отмечены красным.");
     if (!(await confirmBox(`Отправить бокс: ${ls.length} поз., ${ls.reduce((a, x) => a + x.q, 0)} шт? Изменить его после отправки будет нельзя.`))) return;
     const b = $("#send"); b.disabled = true; b.textContent = "Отправляем…";
     try {
@@ -364,6 +380,13 @@ function renderCheckout() {
       okHaptic(); S.cart = {}; saveCart(); S.delivery = null; S.doneNo = r.order_no; go("done");
     } catch (e) {
       b.disabled = false; b.textContent = "Отправить бокс";
+      if (e.code === "stock") {
+        try { await loadCatalog(true) } catch (x) {}
+        for (const s of (e.data && e.data.short) || []) { const p = prod(s.id); if (p) p.stock = s.stock }
+        const names = ((e.data && e.data.short) || []).map((s) => { const p = prod(s.id); return p ? `• ${p.name} (${p.size}) — ${s.stock ? `осталось ${s.stock} шт` : "закончился"}` : "" }).filter(Boolean).join("\n");
+        alertBox(`Пока вы собирали бокс, на складе изменились остатки:\n${names}\n\nЗамените или уменьшите эти товары.`);
+        renderCheckout(); return;
+      }
       alertBox(e.code === "already" ? "Бокс за этот месяц уже оформлен." : e.code === "unavailable" ? "Один из товаров больше недоступен. Обновите каталог." : e.code === "delivery" ? "Проверьте данные доставки." : "Не удалось отправить. Попробуйте ещё раз.");
     }
   };
@@ -402,7 +425,7 @@ function orderCardStaff(o, owner) {
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-weight:700;font-size:16px">${esc(o.athletes?.name || "")}</div>
       <div class="sm muted">Бокс №${o.order_no} · ${monthName(o.period)} · ${dt(o.created_at)}</div></div>${badge(o.status)}</div>
     ${over ? `<div class="badge b-bad" style="align-self:stretch;text-align:center">Сверх лимита на ${money(o.over_limit)} сум</div>` : ""}
-    <div>${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · <b style="color:var(--dark)">${i.qty} шт</b></div></div></div>${owner ? `<span class="num" style="font-size:17px;white-space:nowrap">${money(i.amount)}</span>` : ""}</div>`).join("")}</div>
+    <div>${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · <b style="color:var(--dark)">${i.qty} шт</b></div>${i.stock !== null && i.stock !== undefined && i.qty > i.stock ? `<div class="sm" style="color:var(--bad);font-weight:600">На складе не хватает: есть ${i.stock} шт</div>` : ""}</div></div>${owner ? `<span class="num" style="font-size:17px;white-space:nowrap">${money(i.amount)}</span>` : ""}</div>`).join("")}</div>
     ${owner ? `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">Итого по рознице</span><span class="num" style="font-size:26px">${money(o.total)} сум</span></div>` : ""}
     <div class="sm" style="background:var(--light);border-radius:12px;padding:10px 12px;line-height:1.5">${deliv}<br>Тел.: <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>${o.athletes?.tg_username ? ` · @${esc(o.athletes.tg_username)}` : ""}${o.comment ? `<br>Комментарий: ${esc(o.comment)}` : ""}${o.tracking_no ? `<br>Накладная BTS: <b>${esc(o.tracking_no)}</b>` : ""}${o.reject_reason ? `<br><span style="color:var(--bad)">Отклонён: ${esc(o.reject_reason)}</span>` : ""}${o.cancel_reason ? `<br><span style="color:var(--bad)">Отменён: ${esc(o.cancel_reason)}</span>` : ""}</div>
     ${acts.length ? `<div style="display:flex;flex-direction:column;gap:8px">${acts.join("")}</div>` : ""}</section>`;
