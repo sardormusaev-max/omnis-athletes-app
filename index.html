@@ -109,7 +109,7 @@ body.kb nav, body.kb .cart{display:none}
 <div id="app"><div class="center"><div class="spin"></div></div></div>
 <nav id="nav" hidden style="display:none" aria-label="Разделы"></nav>
 <script>
-const API = "https://ehtrmirtdjijfsupwkrz.supabase.co/functions/v1/athletes";
+const API = "https://ehtrmirtdjijfsupwkrz.supabase.co/functions/v1/athletes?forceFunctionRegion=eu-central-1";
 const tg = window.Telegram && window.Telegram.WebApp;
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -157,7 +157,10 @@ async function api(action, extra = {}) {
 async function loadCatalog() { if (!S.catalog) S.catalog = (await api("catalog")).products; return S.catalog }
 const prod = (id) => (S.catalog || []).find((p) => p.id == id);
 // Фото: сначала из Billz, при ошибке — резервная копия на GitHub (img/<id>.jpg)
-const imgSrc = (id) => { const p = prod(id); return p && p.image ? p.image : `img/${id}.jpg` };
+// Фото из Billz очень большие (≈1920 px PNG) — показываем уменьшенную копию через сервис сжатия wsrv.nl;
+// если он недоступен — сразу резервное фото с GitHub.
+const shrinkUrl = (u, w) => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&h=${w}&fit=contain&cbg=white&output=jpg&q=82`;
+const imgSrc = (id, w = 240) => { const p = prod(id); return p && p.image ? shrinkUrl(p.image, w) : `img/${id}.jpg` };
 const thumb = (id, name, cls = "thumb") => `<img class="${cls} zoomable" src="${esc(imgSrc(id))}" alt="Фото: ${esc(name)}" loading="lazy" data-zoom="${id}" role="button" tabindex="0" onerror="imgFail(this,${Number(id)})">`;
 function imgFail(el, id) { if (!el.dataset.fb) { el.dataset.fb = "1"; el.src = `img/${id}.jpg` } else el.style.visibility = "hidden" }
 
@@ -515,7 +518,7 @@ function openZoom(id, img) {
   closeZoom(true);
   const p = prod(id); const name = p ? p.name : (img.alt || "").replace(/^Фото: /, "");
   const el = document.createElement("div"); el.className = "lb"; el.setAttribute("role", "dialog");
-  el.innerHTML = `<button class="x" aria-label="Закрыть">${ic("x", "#fff", 22)}</button><img src="${img.currentSrc || img.src}" alt="${esc(name)}">
+  el.innerHTML = `<button class="x" aria-label="Закрыть">${ic("x", "#fff", 22)}</button><img src="${p && p.image && !img.dataset.fb ? shrinkUrl(p.image, 900) : (img.currentSrc || img.src)}" alt="${esc(name)}" onerror="this.onerror=null;this.src='img/${Number(id)}.jpg'">
     <div class="cap"><b>${esc(name)}</b>${p ? `<span>${esc(p.brand)} · ${esc(p.size)}</span>` : ""}</div><div class="hint">Нажмите в любом месте, чтобы закрыть</div>`;
   el.onclick = () => closeZoom(); document.body.appendChild(el); LB = el; haptic();
   try { tg.BackButton.show() } catch (e) {}
