@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>OMNIS Box — атлеты OMNIS NUTRITION</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alumni+Sans:wght@500;600;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#193E75;--dark:#111F32;--steel:#8992A3;--gb:#B6C1D5;--light:#ECECEC;--line:#D5D9E1;--muted:#5B6475;--ok:#1F6B44;--okbg:#E3F3EA;--wait:#7A4F00;--waitbg:#FFF1D6;--bad:#8C1D18;--badbg:#FDE7E6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--light);color:var(--dark);font-family:'Geist',system-ui,sans-serif;font-size:15px}
+button,input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+.num{font-family:'Alumni Sans',sans-serif;font-weight:700;letter-spacing:.01em}
+.h{font-family:'Alumni Sans',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin:0;line-height:1}
+#app{max-width:520px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-bottom:84px}
+.top{background:var(--dark);color:#fff;padding:18px 20px 76px}
+.top small{display:block;font-size:11px;letter-spacing:.16em;color:var(--gb);font-weight:600;margin-bottom:4px}
+.top .h{font-size:30px}
+.wrap{padding:0 16px;display:flex;flex-direction:column;gap:14px}
+.lift{margin-top:-60px}
+.card{background:#fff;border-radius:20px;padding:16px}
+.debt{background:var(--navy);color:#fff;border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.debt .lbl{font-size:13px;color:var(--gb)}
+.debt .big{font-size:56px;line-height:1}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:2px}
+.tile .t{font-size:12px}.tile .v{font-size:28px;line-height:1.1}.tile .s{font-size:11px}
+.t-navy{background:#11305C;color:#fff}.t-navy .t,.t-navy .s{color:var(--gb)}
+.t-red{background:#4A1620;color:#fff}.t-red .t,.t-red .s{color:#FFD0D4}
+.t-green{background:#123F33;color:#fff}.t-green .t,.t-green .s{color:#BFE6D2}
+.bar{height:6px;border-radius:3px;background:#11305C}.bar i{display:block;height:6px;border-radius:3px;background:var(--gb)}
+.btn{height:52px;border-radius:16px;border:none;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%}
+.btn-dark{background:var(--dark);color:#fff}.btn-navy{background:var(--navy);color:#fff}
+.btn-light{background:#fff;border:1px solid var(--gb);color:var(--dark)}
+.btn:disabled{opacity:.5}
+.stat{background:#fff;border-radius:16px;padding:14px 16px}
+.stat .t{font-size:12px;color:var(--muted)}.stat .v{font-size:26px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:600;white-space:nowrap}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--light)}
+.row .a{font-size:14px;font-weight:600}.row .b{font-size:12px;color:var(--muted)}
+.row .s{font-size:20px;text-align:right;white-space:nowrap}.row .bal{font-size:18px;text-align:right;min-width:80px;color:var(--muted)}
+.hdr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:12px;font-size:11px;color:var(--muted);letter-spacing:.06em;font-weight:600}
+.plus{color:var(--dark)}.minus{color:var(--ok)}.pend{color:var(--wait)}
+.badge{padding:5px 10px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap;align-self:flex-start}
+.b-ok{background:var(--okbg);color:var(--ok)}.b-wait{background:var(--waitbg);color:var(--wait)}.b-bad{background:var(--badbg);color:var(--bad)}
+.act{display:flex;align-items:center;gap:14px;background:#fff;border-radius:18px;padding:14px 16px;border:none;width:100%;text-align:left}
+.cal{width:52px;height:56px;border-radius:14px;background:var(--light);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.cal b{font-family:'Alumni Sans',sans-serif;font-size:26px;line-height:1}.cal span{font-size:11px;font-weight:600;color:var(--muted)}
+.page-h{padding:20px 20px 6px}.page-h .h{font-size:40px}.page-h p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.back{display:flex;align-items:center;gap:6px;padding:12px 12px 4px 8px}
+.back button{width:44px;height:44px;border:none;background:none;border-radius:22px;display:flex;align-items:center;justify-content:center}
+.item{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--light)}
+.item .n{font-size:14px;font-weight:600;line-height:1.3}.item .d{font-size:12px;color:var(--muted);margin-top:3px}.item .s{font-size:20px;white-space:nowrap}
+nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 8px calc(12px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;z-index:5}
+nav button{border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;font-size:11px;font-weight:500;color:var(--muted)}
+nav button.on{color:var(--navy);font-weight:700}
+nav svg{width:22px;height:22px}
+nav .bd{position:absolute;top:0;right:calc(50% - 22px);min-width:18px;height:18px;border-radius:9px;background:#C8102E;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px}
+nav button{position:relative}
+.pill{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap}
+.field{display:flex;flex-direction:column;gap:8px}.field label,.field .lab{font-size:13px;font-weight:600}
+.inp{height:50px;border-radius:14px;border:1px solid var(--gb);padding:0 14px;background:#fff;width:100%}
+.inp.big{height:58px;font-family:'Alumni Sans',sans-serif;font-size:32px;font-weight:700}
+textarea.inp{height:auto;padding:12px 14px;resize:none}
+.drop{height:96px;border-radius:14px;border:1.5px dashed var(--steel);background:#F6F7F9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;color:#3B4352;width:100%;overflow:hidden;position:relative}
+.drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.prod{background:#fff;border-radius:16px;padding:10px 12px 10px 10px;display:flex;align-items:center;gap:12px}
+.prod .br{font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.06em}
+.prod .nm{font-size:14px;font-weight:600;line-height:1.3}.prod .pr{font-size:12px;color:var(--muted)}
+.add{width:44px;height:44px;border-radius:14px;border:1px solid var(--line);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.step{display:flex;align-items:center;background:var(--dark);border-radius:14px;padding:2px;flex-shrink:0}
+.step button{width:38px;height:40px;border:none;background:none;color:#fff;font-size:20px;font-weight:700}
+.step input{width:40px;border:none;background:none;color:#fff;text-align:center;font-weight:700;font-size:15px;padding:0}
+.thumb{width:60px;height:60px;border-radius:12px;background:#fff;object-fit:contain;flex-shrink:0;border:1px solid var(--light)}
+.thumb.sm{width:44px;height:44px;border-radius:10px}
+.catbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;height:44px;border-radius:14px;border:1px solid var(--line);background:#fff;padding:0 14px;font-weight:600;font-size:14px;width:100%}
+.sheet-bg{position:fixed;inset:0;background:rgba(17,31,50,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:520px;max-height:80vh;overflow:auto;padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+.sheet .opt{display:flex;justify-content:space-between;align-items:center;width:100%;height:48px;border:none;background:none;border-bottom:1px solid var(--light);font-size:15px;font-weight:500;padding:0 4px;text-align:left}
+.sheet .opt.on{color:var(--navy);font-weight:700}
+.cart{position:fixed;left:0;right:0;bottom:calc(66px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto;background:#fff;border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:12px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 -6px 20px rgba(17,31,50,.08);z-index:4}
+.search{display:flex;align-items:center;gap:8px;height:48px;border-radius:14px;background:#fff;border:1px solid var(--line);padding:0 14px}
+.search input{border:none;outline:none;flex:1;background:transparent}
+.center{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:60px 28px}
+.muted{color:var(--muted)}.sm{font-size:12px}
+.banner{background:var(--waitbg);color:var(--wait);font-size:13px;font-weight:600;padding:10px 16px;text-align:center}
+.spin{width:28px;height:28px;border:3px solid var(--gb);border-top-color:var(--navy);border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
+.zoomable{cursor:zoom-in}
+body.kb nav, body.kb .cart{display:none}
+.lb{position:fixed;inset:0;z-index:20;background:rgba(10,18,30,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px calc(24px + env(safe-area-inset-bottom));animation:lbIn .18s ease-out}
+.lb img{width:min(90vw,520px);height:min(90vw,520px);object-fit:contain;background:#fff;border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.lb .cap{color:#fff;text-align:center;margin-top:16px;max-width:440px;display:flex;flex-direction:column;gap:4px}
+.lb .cap b{font-size:16px;line-height:1.35}.lb .cap span{color:var(--gb);font-size:13px}
+.lb .x{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:22px;border:none;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+.lb .hint{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom));color:var(--steel);font-size:12px}
+@keyframes lbIn{from{opacity:0}to{opacity:1}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.b-navy{background:#E3EAF5;color:#193E75}
+.act{cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app"><div class="center"><div class="spin"></div></div></div>
+<nav id="nav" hidden style="display:none" aria-label="Разделы"></nav>
+<script>
+const API = "https://ehtrmirtdjijfsupwkrz.supabase.co/functions/v1/athletes";
+const tg = window.Telegram && window.Telegram.WebApp;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const money = (n) => String(Math.round(Number(n || 0))).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+const MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+const MONTHS_G = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const monthName = (d) => { const [y, m] = String(d).split("-"); return `${MONTHS[+m - 1]} ${y}` };
+const dt = (d) => { if (!d) return ""; const x = new Date(d); return `${x.getDate()} ${MONTHS_G[x.getMonth()]}` };
+const haptic = (t = "light") => { try { tg.HapticFeedback.impactOccurred(t) } catch (e) {} };
+const okHaptic = () => { try { tg.HapticFeedback.notificationOccurred("success") } catch (e) {} };
+const alertBox = (t) => { try { tg.showAlert(t) } catch (e) { alert(t) } };
+const confirmBox = (text) => new Promise((res) => { try { tg.showConfirm(text, (ok) => res(!!ok)) } catch (e) { res(window.confirm(text)) } });
+const errBox = (t) => `<div class="center"><h1 class="h" style="font-size:30px">Ошибка</h1><p class="muted" style="margin:0">${t}</p><button class="btn btn-dark" style="max-width:240px" onclick="location.reload()">Обновить</button></div>`;
+const loading = () => { $("#app").innerHTML = `<div class="center"><div class="spin"></div></div>` };
+
+const STATUS = {
+  new: ["Новый", "b-wait"], packed: ["Собран", "b-wait"], shipped: ["Отправлен", "b-navy"], received: ["Получен", "b-ok"],
+  rejected: ["Отклонён", "b-bad"], cancelled: ["Отменён", "b-bad"],
+};
+const badge = (s) => `<span class="badge ${STATUS[s][1]}">${STATUS[s][0]}</span>`;
+
+const ICON = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  box: '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>', inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
+  truck: '<path d="M1 4h14v11H1zM15 8h4l4 4v3h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.6c1.8.7 3 2.6 3.5 5.4"/>',
+  check: '<path d="M5 12l5 5 9-10"/>', link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+};
+const ic = (n, c = "currentColor", w = 18) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+const DOWN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111F32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
+
+const S = { view: "home", role: null, catalog: null, cart: {}, q: "", cat: "Все", brand: "Все", filter: "new" };
+try { S.cart = JSON.parse(localStorage.getItem("omnis_box_cart") || "{}") || {} } catch (e) {}
+const saveCart = () => { try { localStorage.setItem("omnis_box_cart", JSON.stringify(S.cart)) } catch (e) {} };
+
+async function api(action, extra = {}) {
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initData: tg ? tg.initData : "", action, ...extra }) });
+  const j = await r.json().catch(() => ({ error: "network" }));
+  if (!r.ok) throw Object.assign(new Error(j.error || "error"), { status: r.status, code: j.error });
+  return j;
+}
+async function loadCatalog() { if (!S.catalog) S.catalog = (await api("catalog")).products; return S.catalog }
+const prod = (id) => (S.catalog || []).find((p) => p.id == id);
+const thumb = (id, name, cls = "thumb") => `<img class="${cls} zoomable" src="img/${id}.jpg" alt="Фото: ${esc(name)}" loading="lazy" data-zoom="${id}" role="button" tabindex="0" onerror="this.style.visibility='hidden'">`;
+
+// ---------- навигация ----------
+function go(v, extra = {}) { Object.assign(S, extra); S.view = v; haptic(); render() }
+function render() {
+  const v = S.view;
+  if (S.role === "athlete") {
+    if (v === "home") renderHome(); else if (v === "catalog") renderCatalog(); else if (v === "checkout") renderCheckout(); else if (v === "done") renderDone();
+  } else {
+    if (v === "orders") renderOrders(); else if (v === "athletes") renderAthletes(); else if (v === "add") renderAdd(); else if (v === "invite") renderInvite();
+  }
+  renderNav(); setBack(); window.scrollTo(0, 0);
+}
+function setBack() {
+  if (!tg) return;
+  const sub = ["checkout", "done", "add", "invite"].includes(S.view);
+  if (sub) tg.BackButton.show(); else tg.BackButton.hide();
+}
+function onBack() {
+  if (closeZoom()) return;
+  if (S.view === "checkout") return go("catalog");
+  if (S.view === "done") return go("home");
+  if (S.view === "add" || S.view === "invite") return go("athletes");
+}
+function renderNav() {
+  const n = $("#nav");
+  let tabs;
+  if (S.role === "athlete") tabs = [["home", "box", "Мой бокс"], ["catalog", "grid", "Каталог"]];
+  else if (S.role === "owner") tabs = [["orders", "inbox", "Заказы"], ["athletes", "users", "Атлеты"]];
+  else tabs = [["orders", "inbox", "Заказы"]];
+  if (tabs.length < 2 || ["checkout", "done", "add", "invite"].includes(S.view)) { n.hidden = true; n.style.display = "none"; return }
+  n.hidden = false; n.style.display = ""; n.style.gridTemplateColumns = `repeat(${tabs.length},1fr)`;
+  const badgeN = S.role !== "athlete" && S.counts ? S.counts.new : 0;
+  n.innerHTML = tabs.map(([v, i, t]) => `<button class="${S.view === v ? "on" : ""}" data-v="${v}" aria-current="${S.view === v ? "page" : "false"}">${ic(i, "currentColor", 22)}<span>${t}</span>${v === "orders" && badgeN ? `<span class="bd">${badgeN}</span>` : ""}</button>`).join("");
+  n.querySelectorAll("[data-v]").forEach((b) => b.onclick = () => go(b.dataset.v));
+}
+
+// ================= атлет =================
+async function renderHome() {
+  loading();
+  let r;
+  try { [S.me, r] = await Promise.all([api("init"), api("my_orders")]) } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить данные."); return }
+  S.orders = r.orders;
+  const per = S.me.period;
+  const cur = S.orders.find((o) => o.period === per && !["rejected", "cancelled"].includes(o.status));
+  const rejected = !cur && S.orders.find((o) => o.period === per && o.status === "rejected");
+  const name = (S.me.athlete.name || "").split(" ")[0];
+  const cartN = Object.keys(S.cart).length;
+  $("#app").innerHTML = `
+  <header class="top"><small>OMNIS NUTRITION · ATHLETE BOX</small><h1 class="h">Привет, ${esc(name)}</h1></header>
+  <main class="wrap lift">
+    <section class="debt" aria-label="Бокс за ${monthName(per)}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="lbl">Бокс за ${monthName(per)}</span>${cur ? badge(cur.status) : ""}</div>
+      ${cur ? boxStatusText(cur) : `<div class="num" style="font-size:40px;line-height:1">${rejected ? "Соберите бокс заново" : "Бокс ещё не собран"}</div>
+        ${rejected && rejected.reject_reason ? `<div style="background:#4A1620;border-radius:14px;padding:10px 12px;font-size:13px;color:#FFD0D4">Прошлый бокс отклонён: ${esc(rejected.reject_reason)}</div>` : ""}
+        <button class="btn" style="background:#fff;color:var(--dark)" id="toCat">${cartN ? `Продолжить сборку · ${cartN} поз.` : "Собрать бокс"}</button>`}
+    </section>
+    ${cur && cur.status === "shipped" ? `<button class="btn btn-dark" id="gotIt">${ic("check", "#fff")} Я получил бокс</button>` : ""}
+    <section class="card"><h2 class="h" style="font-size:24px;margin-bottom:6px">Мои боксы</h2>
+      ${S.orders.length ? S.orders.map(orderRowAthlete).join("") : `<p class="muted sm" style="margin:6px 0 0">Здесь появится история ваших боксов.</p>`}
+    </section>
+    <p class="sm muted" style="text-align:center;margin:0 12px">Один бокс в месяц · доставка за счёт OMNIS</p>
+  </main>`;
+  const b = $("#toCat"); if (b) b.onclick = () => go("catalog");
+  const g = $("#gotIt"); if (g) g.onclick = async () => {
+    if (!(await confirmBox("Подтвердить, что вы получили бокс?"))) return;
+    g.disabled = true;
+    try { await api("received", { orderId: cur.id }); okHaptic(); renderHome() } catch (e) { g.disabled = false; alertBox("Не удалось сохранить. Попробуйте ещё раз.") }
+  };
+  document.querySelectorAll("[data-open]").forEach((x) => x.onclick = () => { const d = x.nextElementSibling; d.hidden = !d.hidden; haptic() });
+}
+function boxStatusText(o) {
+  const t = {
+    new: "Бокс принят. Мы соберём его в ближайшие дни.",
+    packed: "Бокс собран и готовится к отправке.",
+    shipped: o.delivery_type === "bts" ? `Отправлен через BTS${o.tracking_no ? ` · накладная <b>${esc(o.tracking_no)}</b>` : ""}. Получение: ${esc(o.city || "")}${o.bts_branch ? `, ${esc(o.bts_branch)}` : ""}.` : "Бокс передан в доставку по Ташкенту.",
+    received: "Бокс получен. Следующий можно собрать в новом месяце.",
+  }[o.status];
+  const units = o.items.reduce((a, i) => a + i.qty, 0);
+  return `<div class="num" style="font-size:40px;line-height:1">Бокс №${o.order_no}</div><div style="font-size:14px;color:#fff">${t}</div><div class="sm" style="color:var(--gb)">${o.items.length} поз. · ${units} шт · от ${dt(o.created_at)}</div>`;
+}
+function orderRowAthlete(o) {
+  return `<div style="border-top:1px solid var(--light)"><button data-open class="act" style="padding:12px 0;border-radius:0;background:none">
+    <div class="cal"><b>${String(o.period).slice(5, 7)}</b><span>${String(o.period).slice(0, 4)}</span></div>
+    <div style="flex:1;min-width:0"><div style="font-weight:600">Бокс №${o.order_no}</div><div class="sm muted">${monthName(o.period)} · ${o.items.length} поз.</div></div>${badge(o.status)}</button>
+    <div hidden style="padding:0 0 10px">${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · ${i.qty} шт</div></div></div></div>`).join("")}
+    ${o.reject_reason ? `<p class="sm" style="color:var(--bad);margin:6px 0 0">Причина отклонения: ${esc(o.reject_reason)}</p>` : ""}${o.cancel_reason ? `<p class="sm" style="color:var(--bad);margin:6px 0 0">Причина отмены: ${esc(o.cancel_reason)}</p>` : ""}</div></div>`;
+}
+
+async function renderCatalog() {
+  if (!S.catalog) { loading(); try { await loadCatalog() } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить каталог."); return } }
+  if (S.me && S.me.hasOrder && !["rejected", "cancelled"].includes(S.me.orderStatus || "")) {
+    $("#app").innerHTML = `<div class="center">${ic("box", "#193E75", 48)}<h1 class="h" style="font-size:30px">Бокс за этот месяц уже собран</h1><p class="muted" style="margin:0">Следующий бокс можно собрать в начале нового месяца. Каталог пока можно посмотреть ниже.</p></div><main class="wrap" id="plist" style="gap:8px;padding-bottom:100px"></main><div id="cartbar"></div>`;
+    S.browseOnly = true; drawList(); return;
+  }
+  S.browseOnly = false;
+  const cats = ["Все", ...new Set(S.catalog.map((p) => p.category))];
+  const brands = ["Все", ...new Set(S.catalog.map((p) => p.brand))];
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">Каталог</h1><p>Выберите продукты для бокса · ${S.catalog.length} позиций</p></header>
+  <div style="padding:8px 16px 0"><label for="q" class="sr">Поиск товара</label><div class="search">${ic("search", "#5B6475")}<input id="q" placeholder="Название, вкус или бренд" value="${esc(S.q)}" autocomplete="off"></div></div>
+  <div class="grid2" style="padding:10px 16px 12px;gap:8px">
+    <button class="catbtn" id="catbtn"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="muted" style="font-weight:500">Категория:</span> ${esc(S.cat)}</span>${DOWN}</button>
+    <button class="catbtn" id="brbtn"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="muted" style="font-weight:500">Бренд:</span> ${esc(S.brand)}</span>${DOWN}</button></div>
+  <main class="wrap" id="plist" style="gap:8px;padding-bottom:150px"></main><div id="cartbar"></div>`;
+  $("#q").oninput = (e) => { S.q = e.target.value; drawList() };
+  $("#catbtn").onclick = () => openSheet("Категории", cats, S.cat, (c) => S.catalog.filter((p) => (c === "Все" || p.category === c) && (S.brand === "Все" || p.brand === S.brand)).length, (c) => { S.cat = c; renderCatalog() });
+  $("#brbtn").onclick = () => openSheet("Бренды", brands, S.brand, (b) => S.catalog.filter((p) => (b === "Все" || p.brand === b) && (S.cat === "Все" || p.category === S.cat)).length, (b) => { S.brand = b; renderCatalog() });
+  drawList();
+}
+function openSheet(title, opts, cur, count, pick) {
+  const bg = document.createElement("div"); bg.className = "sheet-bg";
+  bg.innerHTML = `<div class="sheet" role="dialog" aria-label="${esc(title)}"><h2 class="h" style="font-size:26px;margin:0 4px 8px">${esc(title)}</h2>
+    ${opts.map((o) => { const n = count(o); return `<button class="opt ${cur === o ? "on" : ""}" data-o="${esc(o)}" ${n ? "" : 'style="opacity:.4"'}><span>${esc(o)}</span><span class="muted sm">${n}</span></button>` }).join("")}</div>`;
+  bg.onclick = (e) => { if (e.target === bg) bg.remove() };
+  document.body.appendChild(bg);
+  bg.querySelectorAll("[data-o]").forEach((b) => b.onclick = () => { bg.remove(); haptic(); pick(b.dataset.o) });
+}
+function stepper(id, q) {
+  return `<div class="step"><button data-dec="${id}" aria-label="Меньше">−</button><input data-q="${id}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${q}" aria-label="Количество"><button data-inc="${id}" aria-label="Больше">+</button></div>`;
+}
+function bindSteppers(after) {
+  const setQ = (id, v) => { v = Math.max(0, Math.min(99, v | 0)); if (v) S.cart[id] = v; else delete S.cart[id]; saveCart(); haptic(); after() };
+  document.querySelectorAll("[data-inc]").forEach((b) => b.onclick = () => setQ(b.dataset.inc, (S.cart[b.dataset.inc] || 0) + 1));
+  document.querySelectorAll("[data-dec]").forEach((b) => b.onclick = () => setQ(b.dataset.dec, (S.cart[b.dataset.dec] || 0) - 1));
+  document.querySelectorAll("[data-q]").forEach((i) => {
+    i.onfocus = () => setTimeout(() => { try { i.select() } catch (e) {} }, 0);
+    i.oninput = () => { const v = i.value.replace(/\D/g, "").slice(0, 2); if (i.value !== v) i.value = v };
+    i.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); i.blur() } };
+    i.onblur = () => setQ(i.dataset.q, Number(i.value) || 0);
+  });
+}
+function drawList() {
+  const toks = S.q.toLowerCase().replace(/ё/g, "е").split(/\s+/).filter(Boolean);
+  const list = S.catalog.filter((p) => (S.browseOnly || ((S.cat === "Все" || p.category === S.cat) && (S.brand === "Все" || p.brand === S.brand))) &&
+    toks.every((t) => `${p.name} ${p.size} ${p.brand}`.toLowerCase().replace(/ё/g, "е").includes(t)));
+  $("#plist").innerHTML = list.length ? list.slice(0, 150).map((p) => { const q = S.cart[p.id] || 0; return `
+    <div class="prod">${thumb(p.id, p.name)}<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+      <span class="br">${esc(p.brand)}</span><span class="nm">${esc(p.name)}</span><span class="pr">${esc(p.size)} · ${money(p.price)} сум</span></div>
+      ${S.browseOnly ? "" : q ? stepper(p.id, q) : `<button class="add" data-inc="${p.id}" aria-label="Добавить ${esc(p.name)}">${ic("plus", "#111F32")}</button>`}</div>` }).join("")
+    + (list.length > 150 ? `<p class="sm muted" style="text-align:center">Показаны первые 150 — уточните поиск</p>` : "")
+    : `<div class="card muted">Ничего не найдено</div>`;
+  if (!S.browseOnly) { bindSteppers(drawList); drawCart() }
+}
+function cartLines() { return Object.keys(S.cart).map((id) => ({ p: prod(id), q: S.cart[id] })).filter((x) => x.p) }
+function drawCart() {
+  const lines = cartLines(), bar = $("#cartbar");
+  if (!lines.length) { bar.innerHTML = ""; return }
+  const sum = lines.reduce((a, x) => a + x.p.price * x.q, 0), units = lines.reduce((a, x) => a + x.q, 0);
+  bar.innerHTML = `<section class="cart" aria-label="Ваш бокс"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">В боксе: ${lines.length} поз. · ${units} шт</span><span class="num" style="font-size:26px">${money(sum)} сум</span></div>
+    <button class="btn btn-navy" id="next">Перейти к оформлению</button></section>`;
+  $("#next").onclick = () => go("checkout");
+}
+
+function renderCheckout() {
+  const lines = cartLines();
+  if (!lines.length) return go("catalog");
+  const a = (S.me && S.me.athlete) || {};
+  const d = S.delivery || { type: a.delivery_type || "tashkent", phone: a.phone || "", city: a.city || "", address: a.address || "", bts_branch: a.bts_branch || "", comment: "" };
+  S.delivery = d;
+  const sum = lines.reduce((s, x) => s + x.p.price * x.q, 0);
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">Оформление</h1><p>Бокс за ${monthName(S.me.period)}</p></header>
+  <main class="wrap" style="padding-bottom:30px">
+    <section class="card"><h2 class="h" style="font-size:22px;margin-bottom:4px">Состав бокса</h2><div id="lines"></div></section>
+    <section class="card" style="display:flex;flex-direction:column;gap:14px"><h2 class="h" style="font-size:22px">Доставка</h2>
+      <div class="grid2" style="gap:8px" role="radiogroup" aria-label="Способ доставки">
+        <button class="chip ${d.type === "tashkent" ? "on" : ""}" data-dt="tashkent" style="height:46px">По Ташкенту</button>
+        <button class="chip ${d.type === "bts" ? "on" : ""}" data-dt="bts" style="height:46px">BTS в регион</button></div>
+      <div class="field"><label for="ph">Телефон</label><input class="inp" id="ph" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" value="${esc(d.phone)}"></div>
+      ${d.type === "bts"
+        ? `<div class="field"><label for="city">Город / район</label><input class="inp" id="city" placeholder="Например, Самарканд" value="${esc(d.city)}"></div>
+           <div class="field"><label for="br">Отделение BTS</label><input class="inp" id="br" placeholder="Адрес или номер отделения" value="${esc(d.bts_branch)}"></div>`
+        : `<div class="field"><label for="addr">Адрес доставки</label><textarea class="inp" id="addr" rows="2" placeholder="Улица, дом, ориентир">${esc(d.address)}</textarea></div>`}
+      <div class="field"><label for="cm">Комментарий <span class="muted" style="font-weight:400">— необязательно</span></label><textarea class="inp" id="cm" rows="2" placeholder="Удобное время, пожелания">${esc(d.comment)}</textarea></div>
+      <p class="sm muted" style="margin:0">Доставка за счёт OMNIS.</p>
+    </section>
+    <button class="btn btn-navy" id="send">Отправить бокс</button>
+  </main>`;
+  const drawLines = () => {
+    const ls = cartLines();
+    if (!ls.length) return go("catalog");
+    $("#lines").innerHTML = ls.map(({ p, q }) => `<div class="item" style="align-items:center"><div style="display:flex;gap:10px;align-items:center;min-width:0">${thumb(p.id, p.name, "thumb sm")}<div style="min-width:0"><div class="n" style="font-size:13px">${esc(p.name)}</div><div class="d">${esc(p.brand)} · ${esc(p.size)} · ${money(p.price)} сум</div></div></div>${stepper(p.id, q)}</div>`).join("")
+      + `<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;border-top:1px solid var(--light)"><span class="sm muted">${ls.length} поз. · ${ls.reduce((a, x) => a + x.q, 0)} шт</span><span class="num" style="font-size:26px">${money(ls.reduce((a, x) => a + x.p.price * x.q, 0))} сум</span></div>`;
+    bindSteppers(drawLines);
+  };
+  drawLines();
+  const keep = () => { d.phone = $("#ph").value; if ($("#city")) d.city = $("#city").value; if ($("#br")) d.bts_branch = $("#br").value; if ($("#addr")) d.address = $("#addr").value; d.comment = $("#cm").value };
+  document.querySelectorAll("[data-dt]").forEach((b) => b.onclick = () => { keep(); d.type = b.dataset.dt; renderCheckout() });
+  $("#send").onclick = async () => {
+    keep();
+    if (d.phone.replace(/\D/g, "").length < 9) return alertBox("Укажите телефон для связи.");
+    if (d.type === "bts" && (!d.city.trim() || !d.bts_branch.trim())) return alertBox("Укажите город и отделение BTS.");
+    if (d.type === "tashkent" && !d.address.trim()) return alertBox("Укажите адрес доставки.");
+    const ls = cartLines();
+    if (!(await confirmBox(`Отправить бокс: ${ls.length} поз., ${ls.reduce((a, x) => a + x.q, 0)} шт? Изменить его после отправки будет нельзя.`))) return;
+    const b = $("#send"); b.disabled = true; b.textContent = "Отправляем…";
+    try {
+      const r = await api("order", { items: ls.map((x) => ({ product_id: x.p.id, qty: x.q })), delivery: d });
+      okHaptic(); S.cart = {}; saveCart(); S.delivery = null; S.doneNo = r.order_no; go("done");
+    } catch (e) {
+      b.disabled = false; b.textContent = "Отправить бокс";
+      alertBox(e.code === "already" ? "Бокс за этот месяц уже оформлен." : e.code === "unavailable" ? "Один из товаров больше недоступен. Обновите каталог." : e.code === "delivery" ? "Проверьте данные доставки." : "Не удалось отправить. Попробуйте ещё раз.");
+    }
+  };
+}
+function renderDone() {
+  $("#app").innerHTML = `<div class="center" style="padding-top:90px">${ic("check", "#1F6B44", 56)}<h1 class="h" style="font-size:36px">Бокс №${S.doneNo} отправлен</h1>
+    <p class="muted" style="margin:0">Мы соберём бокс и сообщим в Telegram, когда он будет отправлен.</p><button class="btn btn-dark" id="home" style="max-width:260px">Мой бокс</button></div>`;
+  $("#home").onclick = () => go("home");
+}
+
+// ================= сотрудники =================
+async function renderOrders() {
+  loading();
+  let r;
+  try { r = await api("s_orders", { filter: S.filter }) } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить заказы."); return }
+  S.counts = r.counts; S.sOrders = r.orders;
+  const owner = S.role === "owner";
+  const tabs = [["new", "Новые", r.counts.new], ["packed", "Собраны", r.counts.packed], ["shipped", "В пути", r.counts.shipped], ["done", "Архив", 0]];
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">Боксы атлетов</h1><p>${owner ? "Руководитель" : "Менеджер"} · ${esc(S.me.name || "")}</p></header>
+  <div class="chips" style="padding:8px 16px 12px">${tabs.map(([k, t, n]) => `<button class="chip ${S.filter === k ? "on" : ""}" data-f="${k}">${t}${n ? ` · ${n}` : ""}</button>`).join("")}</div>
+  <main class="wrap" style="padding-bottom:20px">${r.orders.length ? r.orders.map((o) => orderCardStaff(o, owner)).join("") : `<div class="card muted">Здесь пока пусто</div>`}</main>`;
+  document.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { S.filter = b.dataset.f; haptic(); renderOrders() });
+  document.querySelectorAll("[data-act]").forEach((b) => b.onclick = () => staffAct(b.dataset.act, b.dataset.id));
+  renderNav();
+}
+function orderCardStaff(o, owner) {
+  const over = owner && Number(o.over_limit) > 0;
+  const deliv = o.delivery_type === "bts" ? `BTS · ${esc(o.city || "")}${o.bts_branch ? `, ${esc(o.bts_branch)}` : ""}` : `Ташкент · ${esc(o.address || "")}`;
+  const acts = [];
+  if (o.status === "new") acts.push(`<button class="btn btn-dark" data-act="pack" data-id="${o.id}">Собран</button>`);
+  if (o.status === "new" || o.status === "packed") acts.push(`<button class="btn btn-navy" data-act="ship" data-id="${o.id}">${o.delivery_type === "bts" ? "Отправлен BTS" : "Передан курьеру"}</button>`);
+  if (owner && o.status === "new") acts.push(`<button class="btn btn-light" data-act="reject" data-id="${o.id}" style="color:var(--bad)">Отклонить</button>`);
+  if (owner && o.status === "packed") acts.push(`<button class="btn btn-light" data-act="cancel" data-id="${o.id}" style="color:var(--bad)">Отменить</button>`);
+  return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-weight:700;font-size:16px">${esc(o.athletes?.name || "")}</div>
+      <div class="sm muted">Бокс №${o.order_no} · ${monthName(o.period)} · ${dt(o.created_at)}</div></div>${badge(o.status)}</div>
+    ${over ? `<div class="badge b-bad" style="align-self:stretch;text-align:center">Сверх лимита на ${money(o.over_limit)} сум</div>` : ""}
+    <div>${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · <b style="color:var(--dark)">${i.qty} шт</b></div></div></div>${owner ? `<span class="num" style="font-size:17px;white-space:nowrap">${money(i.amount)}</span>` : ""}</div>`).join("")}</div>
+    ${owner ? `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">Итого по рознице</span><span class="num" style="font-size:26px">${money(o.total)} сум</span></div>` : ""}
+    <div class="sm" style="background:var(--light);border-radius:12px;padding:10px 12px;line-height:1.5">${deliv}<br>Тел.: <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>${o.athletes?.tg_username ? ` · @${esc(o.athletes.tg_username)}` : ""}${o.comment ? `<br>Комментарий: ${esc(o.comment)}` : ""}${o.tracking_no ? `<br>Накладная BTS: <b>${esc(o.tracking_no)}</b>` : ""}${o.reject_reason ? `<br><span style="color:var(--bad)">Отклонён: ${esc(o.reject_reason)}</span>` : ""}${o.cancel_reason ? `<br><span style="color:var(--bad)">Отменён: ${esc(o.cancel_reason)}</span>` : ""}</div>
+    ${acts.length ? `<div style="display:flex;flex-direction:column;gap:8px">${acts.join("")}</div>` : ""}</section>`;
+}
+function textSheet(title, label, placeholder, btn, required) {
+  return new Promise((res) => {
+    const bg = document.createElement("div"); bg.className = "sheet-bg";
+    bg.innerHTML = `<div class="sheet" role="dialog" aria-label="${esc(title)}" style="display:flex;flex-direction:column;gap:12px"><h2 class="h" style="font-size:26px;margin:0">${esc(title)}</h2>
+      <div class="field"><label for="ts">${esc(label)}</label><textarea class="inp" id="ts" rows="3" placeholder="${esc(placeholder)}"></textarea></div>
+      <button class="btn btn-dark" id="tsok">${esc(btn)}</button><button class="btn btn-light" id="tsno">Отмена</button></div>`;
+    document.body.appendChild(bg);
+    const done = (v) => { bg.remove(); res(v) };
+    bg.onclick = (e) => { if (e.target === bg) done(null) };
+    $("#tsno").onclick = () => done(null);
+    $("#tsok").onclick = () => { const v = $("#ts").value.trim(); if (required && !v) { $("#ts").focus(); return } done(v) };
+    setTimeout(() => $("#ts").focus(), 50);
+  });
+}
+async function staffAct(act, id) {
+  const o = S.sOrders.find((x) => x.id === id);
+  let extra = {};
+  if (act === "pack") { if (!(await confirmBox(`Бокс №${o.order_no} собран?`))) return }
+  if (act === "ship") {
+    if (o.delivery_type === "bts") { const t = await textSheet(`Отправка бокса №${o.order_no}`, "Номер накладной BTS", "Например, 1234567890", "Отправлен", false); if (t === null) return; extra.tracking = t }
+    else if (!(await confirmBox(`Бокс №${o.order_no} передан курьеру?`))) return;
+  }
+  if (act === "reject") { const t = await textSheet(`Отклонить бокс №${o.order_no}`, "Причина — её увидит атлет", "Например: соберите бокс до 2,5 млн сум", "Отклонить", true); if (t === null) return; extra.reason = t }
+  if (act === "cancel") { const t = await textSheet(`Отменить бокс №${o.order_no}`, "Причина — её увидит атлет", "Например: товара нет в наличии", "Отменить бокс", false); if (t === null) return; extra.reason = t }
+  try { await api({ pack: "s_pack", ship: "s_ship", reject: "s_reject", cancel: "s_cancel" }[act], { orderId: id, ...extra }); okHaptic(); renderOrders() }
+  catch (e) { alertBox(e.code === "state" ? "Статус бокса уже изменился. Обновляю список." : "Не удалось сохранить."); renderOrders() }
+}
+
+async function renderAthletes() {
+  loading();
+  let r;
+  try { r = await api("s_athletes") } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить атлетов."); return }
+  S.athletes = r.athletes;
+  const st = (a) => !a.active ? `<span class="badge b-bad">Отключён</span>` : !a.tg_id ? `<span class="badge b-wait">Не подключён</span>` : a.month ? badge(a.month.status) : `<span class="badge" style="background:var(--light);color:var(--muted)">Нет бокса</span>`;
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">Атлеты</h1><p>${r.athletes.filter((a) => a.active).length} активных · боксы за ${monthName(r.period)}</p></header>
+  <main class="wrap" style="padding-bottom:20px">
+    <button class="btn btn-navy" id="add">${ic("plus", "#fff")} Добавить атлета</button>
+    ${r.athletes.map((a) => `<button class="act" data-a="${a.id}"><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(a.name)}</div>
+      <div class="sm muted">${[a.sport, a.tg_username ? "@" + a.tg_username : null, a.phone].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</div></div>${st(a)}</button>`).join("")}
+  </main>`;
+  $("#add").onclick = () => go("add");
+  document.querySelectorAll("[data-a]").forEach((b) => b.onclick = () => go("invite", { athlete: S.athletes.find((a) => a.id === b.dataset.a) }));
+}
+function renderAdd() {
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">Новый атлет</h1><p>После сохранения появится ссылка-приглашение</p></header>
+  <main class="wrap" style="padding-bottom:30px"><section class="card" style="display:flex;flex-direction:column;gap:14px">
+    <div class="field"><label for="n">Имя и фамилия</label><input class="inp" id="n" autocomplete="off"></div>
+    <div class="field"><label for="sp">Вид спорта <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="sp" placeholder="Бег, Hyrox, бодибилдинг…"></div>
+    <div class="field"><label for="p">Телефон</label><input class="inp" id="p" type="tel" inputmode="tel" placeholder="+998"></div>
+    <div class="field"><label for="u">Ник в Telegram</label><input class="inp" id="u" placeholder="@username" autocomplete="off"></div>
+    <div class="field"><label for="ig">Instagram <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="ig" placeholder="@username" autocomplete="off"></div>
+    <div class="field"><label for="bd">День рождения <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="bd" type="date"></div>
+  </section><button class="btn btn-navy" id="save">Сохранить и получить ссылку</button></main>`;
+  $("#save").onclick = async () => {
+    const name = $("#n").value.trim(); if (!name) return alertBox("Укажите имя атлета.");
+    const b = $("#save"); b.disabled = true;
+    try {
+      const r = await api("s_add_athlete", { name, sport: $("#sp").value, phone: $("#p").value, tg_username: $("#u").value, instagram: $("#ig").value, birth_date: $("#bd").value });
+      okHaptic(); go("invite", { athlete: { name, invite: r.invite, active: true, tg_id: null, fresh: true } });
+    } catch (e) { b.disabled = false; alertBox("Не удалось сохранить.") }
+  };
+}
+function renderInvite() {
+  const a = S.athlete;
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">${esc(a.name)}</h1><p>${a.tg_id ? "Подключён к боту" : "Ещё не подключён к боту"}${a.birth_date ? ` · ДР ${dt(a.birth_date)}` : ""}</p></header>
+  <main class="wrap" style="padding-bottom:30px">
+    ${!a.tg_id && a.invite ? `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 class="h" style="font-size:22px">Ссылка-приглашение</h2>
+      <p class="sm muted" style="margin:0">Отправьте ссылку атлету. Она открывает бота и привязывает его Telegram. Ссылка одноразовая — для одного аккаунта.</p>
+      <div class="sm" style="background:var(--light);border-radius:12px;padding:12px;word-break:break-all">${esc(a.invite)}</div>
+      <button class="btn btn-navy" id="share">${ic("link", "#fff")} Отправить в Telegram</button><button class="btn btn-light" id="copy">Скопировать</button></section>` : ""}
+    ${a.id && a.tg_id ? `<button class="btn btn-light" id="reinv">Новая ссылка (если сменил аккаунт)</button>` : ""}
+    ${a.id ? `<button class="btn btn-light" id="tog" style="color:${a.active ? "var(--bad)" : "var(--ok)"}">${a.active ? "Отключить атлета" : "Включить атлета"}</button>` : ""}
+  </main>`;
+  const sh = $("#share"); if (sh) sh.onclick = () => { const u = `https://t.me/share/url?url=${encodeURIComponent(a.invite)}&text=${encodeURIComponent("Ваша ссылка в OMNIS Box — бот для заказа ежемесячного бокса")}`; try { tg.openTelegramLink(u) } catch (e) { window.open(u) } };
+  const cp = $("#copy"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(a.invite); okHaptic(); cp.textContent = "Скопировано" } catch (e) { alertBox(a.invite) } };
+  const ri = $("#reinv"); if (ri) ri.onclick = async () => { if (!(await confirmBox("Отвязать текущий Telegram и создать новую ссылку?"))) return; const r = await api("s_new_invite", { athleteId: a.id }); S.athlete = { ...a, tg_id: null, invite: r.invite }; renderInvite() };
+  const tg_ = $("#tog"); if (tg_) tg_.onclick = async () => { if (!(await confirmBox(a.active ? "Отключить атлета? Он не сможет заказывать боксы." : "Включить атлета?"))) return; const r = await api("s_toggle_athlete", { athleteId: a.id }); S.athlete = { ...a, active: r.active }; okHaptic(); renderInvite() };
+}
+
+// ---------- клавиатура ----------
+const isField = (el) => el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+document.addEventListener("focusin", (e) => { if (isField(e.target)) document.body.classList.add("kb") });
+document.addEventListener("focusout", () => setTimeout(() => { if (!isField(document.activeElement)) document.body.classList.remove("kb") }, 60));
+document.addEventListener("touchstart", (e) => { const a = document.activeElement; if (isField(a) && !isField(e.target) && !(e.target.closest && e.target.closest("label"))) a.blur() }, { capture: true, passive: true });
+
+// ---------- увеличение фото ----------
+let LB = null;
+function openZoom(id, img) {
+  closeZoom(true);
+  const p = prod(id); const name = p ? p.name : (img.alt || "").replace(/^Фото: /, "");
+  const el = document.createElement("div"); el.className = "lb"; el.setAttribute("role", "dialog");
+  el.innerHTML = `<button class="x" aria-label="Закрыть">${ic("x", "#fff", 22)}</button><img src="${img.currentSrc || img.src}" alt="${esc(name)}">
+    <div class="cap"><b>${esc(name)}</b>${p ? `<span>${esc(p.brand)} · ${esc(p.size)}</span>` : ""}</div><div class="hint">Нажмите в любом месте, чтобы закрыть</div>`;
+  el.onclick = () => closeZoom(); document.body.appendChild(el); LB = el; haptic();
+  try { tg.BackButton.show() } catch (e) {}
+}
+function closeZoom(silent) { if (!LB) return false; LB.remove(); LB = null; if (!silent) setBack(); return true }
+document.addEventListener("click", (e) => { const t = e.target.closest && e.target.closest("[data-zoom]"); if (t) { e.preventDefault(); e.stopPropagation(); openZoom(t.dataset.zoom, t) } }, true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && LB) closeZoom() });
+
+async function boot() {
+  if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("#111F32"); tg.setBackgroundColor("#ECECEC") } catch (e) {} tg.BackButton.onClick(onBack) }
+  if (!tg || !tg.initData) { $("#app").innerHTML = `<div class="center"><h1 class="h" style="font-size:30px">Откройте через Telegram</h1><p class="muted" style="margin:0">OMNIS Box работает внутри бота @omnis_athletes_bot.</p></div>`; return }
+  try {
+    const r = await api("init");
+    if (r.role === "athlete") { S.role = "athlete"; S.me = r; S.view = "home"; loadCatalog().catch(() => {}); render(); return }
+    if (r.role === "owner" || r.role === "ops") { S.role = r.role; S.me = r; S.view = "orders"; render(); return }
+    $("#app").innerHTML = `<div class="center"><h1 class="h" style="font-size:30px">Нет доступа</h1><p class="muted" style="margin:0">Попросите у OMNIS личную ссылку-приглашение и откройте её в Telegram.</p></div>`;
+  } catch (e) { $("#app").innerHTML = errBox(e.status === 401 ? "Сессия устарела. Закройте и снова откройте приложение." : "Не удалось загрузить данные.") }
+}
+boot();
+</script>
+
+</body>
+</html>
