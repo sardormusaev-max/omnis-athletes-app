@@ -156,7 +156,10 @@ async function api(action, extra = {}) {
 }
 async function loadCatalog() { if (!S.catalog) S.catalog = (await api("catalog")).products; return S.catalog }
 const prod = (id) => (S.catalog || []).find((p) => p.id == id);
-const thumb = (id, name, cls = "thumb") => `<img class="${cls} zoomable" src="img/${id}.jpg" alt="Фото: ${esc(name)}" loading="lazy" data-zoom="${id}" role="button" tabindex="0" onerror="this.style.visibility='hidden'">`;
+// Фото: сначала из Billz, при ошибке — резервная копия на GitHub (img/<id>.jpg)
+const imgSrc = (id) => { const p = prod(id); return p && p.image ? p.image : `img/${id}.jpg` };
+const thumb = (id, name, cls = "thumb") => `<img class="${cls} zoomable" src="${esc(imgSrc(id))}" alt="Фото: ${esc(name)}" loading="lazy" data-zoom="${id}" role="button" tabindex="0" onerror="imgFail(this,${Number(id)})">`;
+function imgFail(el, id) { if (!el.dataset.fb) { el.dataset.fb = "1"; el.src = `img/${id}.jpg` } else el.style.visibility = "hidden" }
 
 // ---------- навигация ----------
 function go(v, extra = {}) { Object.assign(S, extra); S.view = v; haptic(); render() }
@@ -509,8 +512,8 @@ async function boot() {
   if (!tg || !tg.initData) { $("#app").innerHTML = `<div class="center"><h1 class="h" style="font-size:30px">Откройте через Telegram</h1><p class="muted" style="margin:0">OMNIS Box работает внутри бота @omnis_athletes_bot.</p></div>`; return }
   try {
     const r = await api("init");
-    if (r.role === "athlete") { S.role = "athlete"; S.me = r; S.view = "home"; loadCatalog().catch(() => {}); render(); return }
-    if (r.role === "owner" || r.role === "ops") { S.role = r.role; S.me = r; S.view = "orders"; render(); return }
+    if (r.role === "athlete") { S.role = "athlete"; S.me = r; S.view = "home"; try { await loadCatalog() } catch (e) {} render(); return }
+    if (r.role === "owner" || r.role === "ops") { S.role = r.role; S.me = r; S.view = "orders"; try { await loadCatalog() } catch (e) {} render(); return }
     $("#app").innerHTML = `<div class="center"><h1 class="h" style="font-size:30px">Нет доступа</h1><p class="muted" style="margin:0">Попросите у OMNIS личную ссылку-приглашение и откройте её в Telegram.</p></div>`;
   } catch (e) { $("#app").innerHTML = errBox(e.status === 401 ? "Сессия устарела. Закройте и снова откройте приложение." : "Не удалось загрузить данные.") }
 }
