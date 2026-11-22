@@ -700,7 +700,11 @@ function renderClaim(denied) {
     b.disabled = true;
     const go_ = async (contact) => {
       try { await api("claim", contact ? { contact } : {}); okHaptic(); try { tg.requestWriteAccess && tg.requestWriteAccess() } catch (e) {} boot() }
-      catch (e) { if (e.code === "no_access") renderClaim(true); else { b.disabled = false; alertBox("Не удалось проверить. Попробуйте ещё раз.") } }
+      catch (e) {
+        if (e.code === "no_access") return renderClaim(true);
+        // бот мог уже привязать аккаунт по отправленному контакту — просто перезапускаемся
+        loading(); setTimeout(boot, 1500);
+      }
     };
     try {
       tg.requestContact((ok, res) => go_(ok && res && res.response ? res.response : null));
