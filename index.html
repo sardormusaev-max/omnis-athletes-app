@@ -487,17 +487,18 @@ async function renderAthletes() {
 }
 function renderAdd() {
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">Новый атлет</h1><p>После сохранения появится ссылка-приглашение</p></header>
+  <header class="page-h"><h1 class="h">Новый атлет</h1><p>Атлет войдёт сам — по номеру телефона или нику в Telegram</p></header>
   <main class="wrap" style="padding-bottom:30px"><section class="card" style="display:flex;flex-direction:column;gap:14px">
     <div class="field"><label for="n">Имя и фамилия</label><input class="inp" id="n" autocomplete="off"></div>
     <div class="field"><label for="sp">Вид спорта <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="sp" placeholder="Бег, Hyrox, бодибилдинг…"></div>
-    <div class="field"><label for="p">Телефон</label><input class="inp" id="p" type="tel" inputmode="tel" placeholder="+998"></div>
+    <div class="field"><label for="p">Телефон <span class="muted" style="font-weight:400">— номер его Telegram</span></label><input class="inp" id="p" type="tel" inputmode="tel" placeholder="+998"></div>
     <div class="field"><label for="u">Ник в Telegram</label><input class="inp" id="u" placeholder="@username" autocomplete="off"></div>
     <div class="field"><label for="ig">Instagram <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="ig" placeholder="@username" autocomplete="off"></div>
     <div class="field"><label for="bd">День рождения <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="bd" type="date"></div>
   </section><button class="btn btn-navy" id="save">Сохранить и получить ссылку</button></main>`;
   $("#save").onclick = async () => {
     const name = $("#n").value.trim(); if (!name) return alertBox("Укажите имя атлета.");
+    if ($("#p").value.replace(/\D/g, "").length < 9 && !$("#u").value.trim()) return alertBox("Укажите телефон или ник в Telegram — по ним атлет войдёт в магазин.");
     const b = $("#save"); b.disabled = true;
     try {
       const r = await api("s_add_athlete", { name, sport: $("#sp").value, phone: $("#p").value, tg_username: $("#u").value, instagram: $("#ig").value, birth_date: $("#bd").value });
@@ -532,11 +533,12 @@ async function renderInvite() {
           ${o.reject_reason ? `<p class="sm" style="color:var(--bad);margin:4px 0 0">Отклонён: ${esc(o.reject_reason)}</p>` : ""}</div></div>`).join("")}</div></div>`).join("")
         : `<p class="sm muted" style="margin:6px 0 0">Заказов ещё не было.</p>`}
     </section>
-    ${!a.tg_id && a.invite ? `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 class="h" style="font-size:22px">Ссылка-приглашение</h2>
-      <p class="sm muted" style="margin:0">Отправьте ссылку атлету. Она открывает бота и привязывает его Telegram. Ссылка одноразовая — для одного аккаунта.</p>
+    ${!a.tg_id ? `<section class="card sm" style="line-height:1.5">Ещё не входил. Войдёт сам через магазин в группе или бота — по номеру <b>${esc(a.phone || "—")}</b>${a.tg_username ? ` или нику <b>@${esc(a.tg_username)}</b>` : ""}.</section>` : ""}
+    ${!a.tg_id && a.invite ? `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 class="h" style="font-size:22px">Личная ссылка (необязательно)</h2>
+      <p class="sm muted" style="margin:0">Если атлета нет в группе — отправьте ему ссылку. Она открывает бота и привязывает его Telegram.</p>
       <div class="sm" style="background:var(--light);border-radius:12px;padding:12px;word-break:break-all">${esc(a.invite)}</div>
       <button class="btn btn-navy" id="share">${ic("link", "#fff")} Отправить в Telegram</button><button class="btn btn-light" id="copy">Скопировать</button></section>` : ""}
-    ${a.tg_id ? `<button class="btn btn-light" id="reinv">Новая ссылка (если сменил аккаунт)</button>` : ""}
+    ${a.tg_id ? `<button class="btn btn-light" id="reinv">Отвязать Telegram (если сменил аккаунт)</button>` : ""}
     <button class="btn btn-light" id="tog" style="color:${a.active ? "var(--bad)" : "var(--ok)"}">${a.active ? "Отключить атлета" : "Включить атлета"}</button>
   </main>`;
   document.querySelectorAll("[data-open]").forEach((x) => x.onclick = (e) => { e.stopPropagation(); const d = x.nextElementSibling; d.hidden = !d.hidden; haptic() });
@@ -591,8 +593,26 @@ async function boot() {
     const r = await api("init");
     if (r.role === "athlete") { S.role = "athlete"; S.me = r; S.view = "home"; try { await loadCatalog() } catch (e) {} render(); return }
     if (r.role === "owner" || r.role === "ops") { S.role = r.role; S.me = r; S.view = "orders"; S.filter = r.role === "owner" ? "new" : "approved"; try { await loadCatalog() } catch (e) {} render(); return }
-    $("#app").innerHTML = `<div class="center"><h1 class="h" style="font-size:30px">Нет доступа</h1><p class="muted" style="margin:0">Попросите у OMNIS личную ссылку-приглашение и откройте её в Telegram.</p></div>`;
+    renderClaim();
   } catch (e) { $("#app").innerHTML = errBox(e.status === 401 ? "Сессия устарела. Закройте и снова откройте приложение." : "Не удалось загрузить данные.") }
+}
+// Вход для атлета, которого владелец заранее добавил по номеру / нику
+function renderClaim(denied) {
+  $("#app").innerHTML = `<div class="center" style="padding-top:70px">${ic("box", "#193E75", 48)}
+    <h1 class="h" style="font-size:32px">${denied ? "Нет доступа" : "Вход в OMNIS Box"}</h1>
+    <p class="muted" style="margin:0">${denied ? "Вашего номера и ника нет в списке атлетов OMNIS. Если вы атлет команды — напишите руководителю, вас добавят, и вы сможете войти." : "Магазин для атлетов команды OMNIS. Подтвердите номер телефона — мы проверим его по списку атлетов."}</p>
+    ${denied ? "" : `<button class="btn btn-navy" id="claim" style="max-width:300px">📱 Подтвердить номер</button>`}</div>`;
+  const b = $("#claim"); if (!b) return;
+  b.onclick = () => {
+    b.disabled = true;
+    const go_ = async (contact) => {
+      try { await api("claim", contact ? { contact } : {}); okHaptic(); try { tg.requestWriteAccess && tg.requestWriteAccess() } catch (e) {} boot() }
+      catch (e) { if (e.code === "no_access") renderClaim(true); else { b.disabled = false; alertBox("Не удалось проверить. Попробуйте ещё раз.") } }
+    };
+    try {
+      tg.requestContact((ok, res) => go_(ok && res && res.response ? res.response : null));
+    } catch (e) { go_(null) }
+  };
 }
 boot();
 </script>
