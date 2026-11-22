@@ -102,6 +102,9 @@ body.kb nav, body.kb .cart{display:none}
 @keyframes lbIn{from{opacity:0}to{opacity:1}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .b-navy{background:#E3EAF5;color:#193E75}
+.ava{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#E3EAF5;color:#193E75;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;flex:none}
+.ava.lg{width:112px;height:112px;font-size:38px}
+.ava.sm{width:40px;height:40px;font-size:15px}
 .link{background:none;border:0;padding:0;color:#193E75;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 .prod.off{opacity:.6}.prod.off .thumb{filter:grayscale(1)}
 .soldout{align-self:flex-start;font-size:11px;font-weight:700;color:var(--bad);background:var(--badbg);border-radius:6px;padding:2px 7px}
@@ -140,6 +143,7 @@ const monShort = (d) => ["янв","фев","мар","апр","мая","июн","
 const ICON = {
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   box: '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>', inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
@@ -181,7 +185,7 @@ function go(v, extra = {}) { Object.assign(S, extra); S.view = v; haptic(); rend
 function render() {
   const v = S.view;
   if (S.role === "athlete") {
-    if (v === "home") renderHome(); else if (v === "catalog") renderCatalog(); else if (v === "checkout") renderCheckout(); else if (v === "done") renderDone();
+    if (v === "home") renderHome(); else if (v === "catalog") renderCatalog(); else if (v === "checkout") renderCheckout(); else if (v === "done") renderDone(); else if (v === "profile") renderProfile();
   } else {
     if (v === "orders") renderOrders(); else if (v === "athletes") renderAthletes(); else if (v === "add") renderAdd(); else if (v === "invite") renderInvite();
   }
@@ -203,7 +207,7 @@ function onBack() {
 function renderNav() {
   const n = $("#nav");
   let tabs;
-  if (S.role === "athlete") tabs = [["home", "box", "Мои заказы"], ["catalog", "grid", "Каталог"]];
+  if (S.role === "athlete") tabs = [["home", "box", "Мои заказы"], ["catalog", "grid", "Каталог"], ["profile", "user", "Профиль"]];
   else if (S.role === "owner") tabs = [["orders", "inbox", "Заказы"], ["athletes", "users", "Атлеты"]];
   else tabs = [["orders", "inbox", "Заказы"]];
   if (tabs.length < 2 || ["checkout", "done", "add", "invite"].includes(S.view)) { n.hidden = true; n.style.display = "none"; return }
@@ -480,7 +484,7 @@ async function renderAthletes() {
   <header class="page-h"><h1 class="h">Атлеты</h1><p>${r.athletes.filter((a) => a.active).length} активных · нажмите на атлета, чтобы увидеть историю</p></header>
   <main class="wrap" style="padding-bottom:20px">
     <button class="btn btn-navy" id="add">${ic("plus", "#fff")} Добавить атлета</button>
-    ${r.athletes.map((a) => `<button class="act" data-a="${a.id}"><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(a.name)}</div>
+    ${r.athletes.map((a) => `<button class="act" data-a="${a.id}">${avatar(a.photo, a.name, "sm")}<div style="flex:1;min-width:0"><div style="font-weight:700">${esc(a.name)}</div>
       <div class="sm muted">${[a.sport, a.tg_username ? "@" + a.tg_username : null].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</div><div class="sm" style="color:#193E75;margin-top:2px">${sub(a)}</div></div>${st(a)}</button>`).join("")}
   </main>`;
   $("#add").onclick = () => go("add", { edit: null });
@@ -530,7 +534,8 @@ async function renderInvite() {
     if (!["rejected", "cancelled"].includes(o.status)) { m.total += Number(o.total); m.count++ }
   }
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">${esc(a.name)}</h1><p>${[a.sport, a.tg_username ? "@" + a.tg_username : null, a.phone, a.birth_date ? `ДР ${dt(a.birth_date)}` : null].filter(Boolean).map(esc).join(" · ")}${a.tg_id ? "" : " · ещё не подключён к боту"}</p></header>
+  <header class="page-h" style="display:flex;gap:14px;align-items:center">${avatar(a.photo, a.name)}<div style="min-width:0"><h1 class="h">${esc(a.name)}</h1><p>${[a.sport, a.tg_username ? "@" + a.tg_username : null, a.phone, a.birth_date ? `ДР ${dt(a.birth_date)}` : null].filter(Boolean).map(esc).join(" · ")}${a.tg_id ? "" : " · ещё не подключён к боту"}</p></div></header>
+  ${a.bio || a.instagram ? `<div class="wrap" style="padding-top:0;padding-bottom:0"><section class="card sm" style="line-height:1.5">${a.instagram ? `Instagram: <a href="https://instagram.com/${esc(a.instagram)}" target="_blank">@${esc(a.instagram)}</a>` : ""}${a.bio && a.instagram ? "<br>" : ""}${a.bio ? esc(a.bio).replace(/\n/g, "<br>") : ""}</section></div>` : ""}
   <main class="wrap" style="padding-bottom:30px">
     <button class="btn btn-light" id="edit">✏️ Редактировать карточку</button>
     <section class="card"><h2 class="h" style="font-size:22px;margin-bottom:4px">История заказов</h2>
@@ -607,6 +612,83 @@ async function boot() {
     renderClaim();
   } catch (e) { $("#app").innerHTML = errBox(e.status === 401 ? "Сессия устарела. Закройте и снова откройте приложение." : "Не удалось загрузить данные.") }
 }
+// ================= профиль атлета =================
+const initials = (n) => String(n || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+const avatar = (photo, name, cls = "") => photo ? `<img class="ava ${cls}" src="${esc(photo)}" alt="">` : `<div class="ava ${cls}" aria-hidden="true">${esc(initials(name))}</div>`;
+// Фото уменьшаем на телефоне: квадрат 512 px, JPEG ~40–80 КБ
+function shrinkPhoto(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height), N = Math.min(512, side);
+      const c = document.createElement("canvas"); c.width = c.height = N;
+      c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, N, N);
+      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", 0.85).split(",")[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")) };
+    img.src = url;
+  });
+}
+async function renderProfile() {
+  loading();
+  let p;
+  try { p = (await api("profile")).profile } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить профиль."); return }
+  const bts = p.delivery_type === "bts";
+  $("#app").innerHTML = `
+  <header class="page-h"><h1 class="h">Профиль</h1><p>Эти данные видит команда OMNIS</p></header>
+  <main class="wrap" style="padding-bottom:30px">
+    <section class="card" style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+      <div id="ava">${avatar(p.photo, p.name, "lg")}</div>
+      <div><div style="font-weight:800;font-size:20px">${esc(p.name)}</div><div class="sm muted">${[p.phone, p.tg_username ? "@" + p.tg_username : null].filter(Boolean).map(esc).join(" · ")}</div></div>
+      <input type="file" id="file" accept="image/*" hidden>
+      <div style="display:flex;gap:8px;width:100%"><button class="btn btn-navy" id="up" style="flex:1">${p.photo ? "Сменить фото" : "Загрузить фото"}</button>${p.photo ? `<button class="btn btn-light" id="delph" style="flex:none;width:auto;padding:0 16px;color:var(--bad)">Удалить</button>` : ""}</div>
+      <p class="sm muted" style="margin:0">Имя, телефон и ник меняет команда OMNIS — по ним вы входите в магазин.</p>
+    </section>
+    <section class="card" style="display:flex;flex-direction:column;gap:14px">
+      <h2 class="h" style="font-size:22px;margin:0">О себе</h2>
+      <div class="field"><label for="sp">Вид спорта</label><input class="inp" id="sp" placeholder="Бег, Hyrox, бодибилдинг…" value="${esc(p.sport || "")}"></div>
+      <div class="field"><label for="ig">Instagram</label><input class="inp" id="ig" placeholder="@username" autocomplete="off" value="${p.instagram ? "@" + esc(p.instagram) : ""}"></div>
+      <div class="field"><label for="bd">День рождения</label><input class="inp" id="bd" type="date" value="${esc(p.birth_date || "")}"></div>
+      <div class="field"><label for="bio">Достижения, старты, цели</label><textarea class="inp" id="bio" rows="4" placeholder="Например: Ironman 70.3, ближайший старт — Ташкентский марафон">${esc(p.bio || "")}</textarea></div>
+    </section>
+    <section class="card" style="display:flex;flex-direction:column;gap:14px">
+      <h2 class="h" style="font-size:22px;margin:0">Доставка по умолчанию</h2>
+      <p class="sm muted" style="margin:0">Подставляется при оформлении заказа — можно изменить в любой момент.</p>
+      <div class="field"><label for="dt">Способ</label><select class="inp" id="dt"><option value="tashkent"${bts ? "" : " selected"}>Курьер по Ташкенту</option><option value="bts"${bts ? " selected" : ""}>BTS — в регион</option></select></div>
+      <div id="dfields"></div>
+    </section>
+    <button class="btn btn-navy" id="save">Сохранить</button>
+  </main>`;
+  const df = () => {
+    $("#dfields").innerHTML = $("#dt").value === "bts"
+      ? `<div style="display:flex;flex-direction:column;gap:14px"><div class="field"><label for="city">Город / район</label><input class="inp" id="city" placeholder="Например, Самарканд" value="${esc(p.city || "")}"></div>
+         <div class="field"><label for="br">Отделение BTS</label><input class="inp" id="br" placeholder="Адрес или номер отделения" value="${esc(p.bts_branch || "")}"></div></div>`
+      : `<div class="field"><label for="addr">Адрес в Ташкенте</label><textarea class="inp" id="addr" rows="2" placeholder="Улица, дом, ориентир">${esc(p.address || "")}</textarea></div>`;
+  };
+  df();
+  $("#dt").onchange = () => { const c = $("#city"), b = $("#br"), ad = $("#addr"); if (c) p.city = c.value; if (b) p.bts_branch = b.value; if (ad) p.address = ad.value; df() };
+  $("#up").onclick = () => $("#file").click();
+  $("#file").onchange = async () => {
+    const f = $("#file").files[0]; if (!f) return;
+    const b = $("#up"); b.disabled = true; b.textContent = "Загружаю…";
+    try { const data = await shrinkPhoto(f); await api("photo", { data }); okHaptic(); renderProfile() }
+    catch (e) { b.disabled = false; b.textContent = "Загрузить фото"; alertBox("Не удалось загрузить фото. Попробуйте другое.") }
+  };
+  const dp = $("#delph"); if (dp) dp.onclick = async () => { if (!(await confirmBox("Удалить фото профиля?"))) return; try { await api("photo_delete"); renderProfile() } catch (e) { alertBox("Не удалось удалить.") } };
+  $("#save").onclick = async () => {
+    const v = (id) => { const el = $(id); return el ? el.value : null };
+    const bts_ = $("#dt").value === "bts";
+    const fields = { sport: v("#sp"), instagram: v("#ig"), birth_date: v("#bd"), bio: v("#bio"), delivery_type: $("#dt").value,
+      city: bts_ ? v("#city") : p.city, bts_branch: bts_ ? v("#br") : p.bts_branch, address: bts_ ? p.address : v("#addr") };
+    const b = $("#save"); b.disabled = true;
+    try {
+      const r = await api("save_profile", { fields });
+      Object.assign(S.me.athlete, { delivery_type: r.profile.delivery_type, city: r.profile.city, address: r.profile.address, bts_branch: r.profile.bts_branch });
+      S.delivery = null; okHaptic(); b.disabled = false; b.textContent = "Сохранено ✓"; setTimeout(() => { if (b.isConnected) b.textContent = "Сохранить" }, 1800);
+    } catch (e) { b.disabled = false; alertBox("Не удалось сохранить.") }
+  };
+}
+
 // Вход для атлета, которого владелец заранее добавил по номеру / нику
 function renderClaim(denied) {
   $("#app").innerHTML = `<div class="center" style="padding-top:70px">${ic("box", "#193E75", 48)}
