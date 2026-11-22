@@ -197,6 +197,7 @@ function onBack() {
   if (S.view === "checkout") return go("catalog");
   if (S.view === "done") return go("home");
   if (S.view === "invite" && S.backTo === "orders") return go("orders", { backTo: null });
+  if (S.view === "add" && S.edit) return go("invite", { athlete: { id: S.edit.id }, edit: null });
   if (S.view === "add" || S.view === "invite") return go("athletes");
 }
 function renderNav() {
@@ -482,28 +483,36 @@ async function renderAthletes() {
     ${r.athletes.map((a) => `<button class="act" data-a="${a.id}"><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(a.name)}</div>
       <div class="sm muted">${[a.sport, a.tg_username ? "@" + a.tg_username : null].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</div><div class="sm" style="color:#193E75;margin-top:2px">${sub(a)}</div></div>${st(a)}</button>`).join("")}
   </main>`;
-  $("#add").onclick = () => go("add");
+  $("#add").onclick = () => go("add", { edit: null });
   document.querySelectorAll("[data-a]").forEach((b) => b.onclick = () => go("invite", { athlete: S.athletes.find((a) => a.id === b.dataset.a) }));
 }
 function renderAdd() {
+  const e = S.edit || null; // режим редактирования карточки
+  const v = (x) => esc(x || "");
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">Новый атлет</h1><p>Атлет войдёт сам — по номеру телефона или нику в Telegram</p></header>
+  <header class="page-h"><h1 class="h">${e ? "Карточка атлета" : "Новый атлет"}</h1><p>${e ? "Изменения сохраняются сразу" : "Атлет войдёт сам — по номеру телефона или нику в Telegram"}</p></header>
   <main class="wrap" style="padding-bottom:30px"><section class="card" style="display:flex;flex-direction:column;gap:14px">
-    <div class="field"><label for="n">Имя и фамилия</label><input class="inp" id="n" autocomplete="off"></div>
-    <div class="field"><label for="sp">Вид спорта <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="sp" placeholder="Бег, Hyrox, бодибилдинг…"></div>
-    <div class="field"><label for="p">Телефон <span class="muted" style="font-weight:400">— номер его Telegram</span></label><input class="inp" id="p" type="tel" inputmode="tel" placeholder="+998"></div>
-    <div class="field"><label for="u">Ник в Telegram</label><input class="inp" id="u" placeholder="@username" autocomplete="off"></div>
-    <div class="field"><label for="ig">Instagram <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="ig" placeholder="@username" autocomplete="off"></div>
-    <div class="field"><label for="bd">День рождения <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="bd" type="date"></div>
-  </section><button class="btn btn-navy" id="save">Сохранить и получить ссылку</button></main>`;
+    <div class="field"><label for="n">Имя и фамилия</label><input class="inp" id="n" autocomplete="off" value="${v(e && e.name)}"></div>
+    <div class="field"><label for="sp">Вид спорта <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="sp" placeholder="Бег, Hyrox, бодибилдинг…" value="${v(e && e.sport)}"></div>
+    <div class="field"><label for="p">Телефон <span class="muted" style="font-weight:400">— номер его Telegram</span></label><input class="inp" id="p" type="tel" inputmode="tel" placeholder="+998" value="${v(e && e.phone)}"></div>
+    <div class="field"><label for="u">Ник в Telegram</label><input class="inp" id="u" placeholder="@username" autocomplete="off" value="${e && e.tg_username ? "@" + v(e.tg_username) : ""}"></div>
+    <div class="field"><label for="ig">Instagram <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="ig" placeholder="@username" autocomplete="off" value="${e && e.instagram ? "@" + v(e.instagram) : ""}"></div>
+    <div class="field"><label for="bd">День рождения <span class="muted" style="font-weight:400">— необязательно</span></label><input class="inp" id="bd" type="date" value="${v(e && e.birth_date)}"></div>
+    ${e && e.tg_id ? `<p class="sm muted" style="margin:0">Атлет уже вошёл — его Telegram привязан. Смена номера или ника на вход не влияет; если он сменил аккаунт — «Отвязать Telegram» в карточке.</p>` : ""}
+  </section><button class="btn btn-navy" id="save">${e ? "Сохранить изменения" : "Сохранить атлета"}</button></main>`;
   $("#save").onclick = async () => {
     const name = $("#n").value.trim(); if (!name) return alertBox("Укажите имя атлета.");
     if ($("#p").value.replace(/\D/g, "").length < 9 && !$("#u").value.trim()) return alertBox("Укажите телефон или ник в Telegram — по ним атлет войдёт в магазин.");
+    const f = { name, sport: $("#sp").value, phone: $("#p").value, tg_username: $("#u").value, instagram: $("#ig").value, birth_date: $("#bd").value };
     const b = $("#save"); b.disabled = true;
     try {
-      const r = await api("s_add_athlete", { name, sport: $("#sp").value, phone: $("#p").value, tg_username: $("#u").value, instagram: $("#ig").value, birth_date: $("#bd").value });
-      okHaptic(); go("invite", { athlete: { id: r.id } });
-    } catch (e) { b.disabled = false; alertBox("Не удалось сохранить.") }
+      const r = e ? await api("s_update_athlete", { athleteId: e.id, fields: f }) : await api("s_add_athlete", f);
+      okHaptic(); go("invite", { athlete: { id: e ? e.id : r.id }, edit: null });
+    } catch (x) {
+      b.disabled = false;
+      if (x.code === "dup") return alertBox(`${x.data.field === "phone" ? "Этот номер" : "Этот ник"} уже указан у атлета ${x.data.other}. У каждого атлета номер и ник должны быть свои.`);
+      alertBox("Не удалось сохранить.");
+    }
   };
 }
 async function renderInvite() {
@@ -523,6 +532,7 @@ async function renderInvite() {
   $("#app").innerHTML = `
   <header class="page-h"><h1 class="h">${esc(a.name)}</h1><p>${[a.sport, a.tg_username ? "@" + a.tg_username : null, a.phone, a.birth_date ? `ДР ${dt(a.birth_date)}` : null].filter(Boolean).map(esc).join(" · ")}${a.tg_id ? "" : " · ещё не подключён к боту"}</p></header>
   <main class="wrap" style="padding-bottom:30px">
+    <button class="btn btn-light" id="edit">✏️ Редактировать карточку</button>
     <section class="card"><h2 class="h" style="font-size:22px;margin-bottom:4px">История заказов</h2>
       ${months.length ? months.map((m) => `<div style="border-top:1px solid var(--light)"><button data-open class="act" style="padding:12px 0;border-radius:0;background:none">
         <div style="flex:1;min-width:0"><div style="font-weight:700;text-transform:capitalize">${monthName(m.period)}</div><div class="sm muted">${m.count} заказ(а)</div></div><span class="num" style="font-size:22px;white-space:nowrap">${money(m.total)} сум</span></button>
@@ -544,6 +554,7 @@ async function renderInvite() {
   document.querySelectorAll("[data-open]").forEach((x) => x.onclick = (e) => { e.stopPropagation(); const d = x.nextElementSibling; d.hidden = !d.hidden; haptic() });
   const sh = $("#share"); if (sh) sh.onclick = () => { const u = `https://t.me/share/url?url=${encodeURIComponent(a.invite)}&text=${encodeURIComponent("Ваша ссылка в OMNIS Box — бот для заказа спортивного питания OMNIS")}`; try { tg.openTelegramLink(u) } catch (e) { window.open(u) } };
   const cp = $("#copy"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(a.invite); okHaptic(); cp.textContent = "Скопировано" } catch (e) { alertBox(a.invite) } };
+  $("#edit").onclick = () => go("add", { edit: a });
   const ri = $("#reinv"); if (ri) ri.onclick = async () => { if (!(await confirmBox("Отвязать текущий Telegram и создать новую ссылку?"))) return; await api("s_new_invite", { athleteId: a.id }); renderInvite() };
   $("#tog").onclick = async () => { if (!(await confirmBox(a.active ? "Отключить атлета? Он не сможет заказывать." : "Включить атлета?"))) return; await api("s_toggle_athlete", { athleteId: a.id }); okHaptic(); renderInvite() };
 }
