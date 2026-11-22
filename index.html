@@ -102,6 +102,7 @@ body.kb nav, body.kb .cart{display:none}
 @keyframes lbIn{from{opacity:0}to{opacity:1}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .b-navy{background:#E3EAF5;color:#193E75}
+.link{background:none;border:0;padding:0;color:#193E75;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 .prod.off{opacity:.6}.prod.off .thumb{filter:grayscale(1)}
 .soldout{align-self:flex-start;font-size:11px;font-weight:700;color:var(--bad);background:var(--badbg);border-radius:6px;padding:2px 7px}
 .act{cursor:pointer}
@@ -128,10 +129,13 @@ const errBox = (t) => `<div class="center"><h1 class="h" style="font-size:30px">
 const loading = () => { $("#app").innerHTML = `<div class="center"><div class="spin"></div></div>` };
 
 const STATUS = {
-  new: ["Новый", "b-wait"], packed: ["Собран", "b-wait"], shipped: ["Отправлен", "b-navy"], received: ["Получен", "b-ok"],
+  new: ["На рассмотрении", "b-wait"], approved: ["Подтверждён", "b-navy"], packed: ["Собран", "b-navy"], shipped: ["Отправлен", "b-navy"], received: ["Получен", "b-ok"],
   rejected: ["Отклонён", "b-bad"], cancelled: ["Отменён", "b-bad"],
 };
-const badge = (s) => `<span class="badge ${STATUS[s][1]}">${STATUS[s][0]}</span>`;
+const STAFF_STATUS = { new: "Ждёт подтверждения", approved: "К сборке" };
+const badge = (s, staff) => `<span class="badge ${STATUS[s][1]}">${staff && STAFF_STATUS[s] ? STAFF_STATUS[s] : STATUS[s][0]}</span>`;
+const dayNum = (d) => new Date(d).getDate();
+const monShort = (d) => ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"][new Date(d).getMonth()];
 
 const ICON = {
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
@@ -192,17 +196,18 @@ function onBack() {
   if (closeZoom()) return;
   if (S.view === "checkout") return go("catalog");
   if (S.view === "done") return go("home");
+  if (S.view === "invite" && S.backTo === "orders") return go("orders", { backTo: null });
   if (S.view === "add" || S.view === "invite") return go("athletes");
 }
 function renderNav() {
   const n = $("#nav");
   let tabs;
-  if (S.role === "athlete") tabs = [["home", "box", "Мой бокс"], ["catalog", "grid", "Каталог"]];
+  if (S.role === "athlete") tabs = [["home", "box", "Мои заказы"], ["catalog", "grid", "Каталог"]];
   else if (S.role === "owner") tabs = [["orders", "inbox", "Заказы"], ["athletes", "users", "Атлеты"]];
   else tabs = [["orders", "inbox", "Заказы"]];
   if (tabs.length < 2 || ["checkout", "done", "add", "invite"].includes(S.view)) { n.hidden = true; n.style.display = "none"; return }
   n.hidden = false; n.style.display = ""; n.style.gridTemplateColumns = `repeat(${tabs.length},1fr)`;
-  const badgeN = S.role !== "athlete" && S.counts ? S.counts.new : 0;
+  const badgeN = S.role !== "athlete" && S.counts ? (S.role === "owner" ? S.counts.new : S.counts.approved) : 0;
   n.innerHTML = tabs.map(([v, i, t]) => `<button class="${S.view === v ? "on" : ""}" data-v="${v}" aria-current="${S.view === v ? "page" : "false"}">${ic(i, "currentColor", 22)}<span>${t}</span>${v === "orders" && badgeN ? `<span class="bd">${badgeN}</span>` : ""}</button>`).join("");
   n.querySelectorAll("[data-v]").forEach((b) => b.onclick = () => go(b.dataset.v));
 }
@@ -213,58 +218,54 @@ async function renderHome() {
   let r;
   try { [S.me, r] = await Promise.all([api("init"), api("my_orders")]) } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить данные."); return }
   S.orders = r.orders;
-  const per = S.me.period;
-  const cur = S.orders.find((o) => o.period === per && !["rejected", "cancelled"].includes(o.status));
-  const rejected = !cur && S.orders.find((o) => o.period === per && o.status === "rejected");
+  const active = S.orders.filter((o) => ["new", "approved", "packed", "shipped"].includes(o.status));
+  const lastRejected = S.orders[0] && S.orders[0].status === "rejected" ? S.orders[0] : null;
   const name = (S.me.athlete.name || "").split(" ")[0];
   const cartN = Object.keys(S.cart).length;
   $("#app").innerHTML = `
   <header class="top"><small>OMNIS NUTRITION · ATHLETE BOX</small><h1 class="h">Привет, ${esc(name)}</h1></header>
   <main class="wrap lift">
-    <section class="debt" aria-label="Бокс за ${monthName(per)}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="lbl">Бокс за ${monthName(per)}</span>${cur ? badge(cur.status) : ""}</div>
-      ${cur ? boxStatusText(cur) : `<div class="num" style="font-size:40px;line-height:1">${rejected ? "Соберите бокс заново" : "Бокс ещё не собран"}</div>
-        ${rejected && rejected.reject_reason ? `<div style="background:#4A1620;border-radius:14px;padding:10px 12px;font-size:13px;color:#FFD0D4">Прошлый бокс отклонён: ${esc(rejected.reject_reason)}</div>` : ""}
-        <button class="btn" style="background:#fff;color:var(--dark)" id="toCat">${cartN ? `Продолжить сборку · ${cartN} поз.` : "Собрать бокс"}</button>`}
+    <section class="debt" aria-label="Новый заказ">
+      <span class="lbl">Спортивное питание OMNIS</span>
+      <div class="num" style="font-size:40px;line-height:1">${cartN ? `В корзине ${cartN} поз.` : "Соберите бокс"}</div>
+      ${lastRejected && lastRejected.reject_reason ? `<div style="background:#4A1620;border-radius:14px;padding:10px 12px;font-size:13px;color:#FFD0D4">Заказ №${lastRejected.order_no} отклонён: ${esc(lastRejected.reject_reason)}</div>` : ""}
+      <button class="btn" style="background:#fff;color:var(--dark)" id="toCat">${cartN ? "Продолжить сборку" : "Открыть каталог"}</button>
     </section>
-    ${cur && cur.status === "shipped" ? `<button class="btn btn-dark" id="gotIt">${ic("check", "#fff")} Я получил бокс</button>` : ""}
-    <section class="card"><h2 class="h" style="font-size:24px;margin-bottom:6px">Мои боксы</h2>
-      ${S.orders.length ? S.orders.map(orderRowAthlete).join("") : `<p class="muted sm" style="margin:6px 0 0">Здесь появится история ваших боксов.</p>`}
+    ${active.map((o) => `<section class="card" style="display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>Заказ №${o.order_no}</b>${badge(o.status)}</div>${boxStatusText(o)}
+      ${o.status === "shipped" ? `<button class="btn btn-dark" data-got="${o.id}">${ic("check", "#fff")} Я получил</button>` : ""}</section>`).join("")}
+    <section class="card"><h2 class="h" style="font-size:24px;margin-bottom:6px">Мои заказы</h2>
+      ${S.orders.length ? S.orders.map(orderRowAthlete).join("") : `<p class="muted sm" style="margin:6px 0 0">Здесь появится история ваших заказов.</p>`}
     </section>
-    <p class="sm muted" style="text-align:center;margin:0 12px">Один бокс в месяц · доставка за счёт OMNIS</p>
+    <p class="sm muted" style="text-align:center;margin:0 12px">Заказ подтверждает команда OMNIS · доставка за счёт OMNIS</p>
   </main>`;
-  const b = $("#toCat"); if (b) b.onclick = () => go("catalog");
-  const g = $("#gotIt"); if (g) g.onclick = async () => {
-    if (!(await confirmBox("Подтвердить, что вы получили бокс?"))) return;
+  $("#toCat").onclick = () => go("catalog");
+  document.querySelectorAll("[data-got]").forEach((g) => g.onclick = async () => {
+    if (!(await confirmBox("Подтвердить, что вы получили заказ?"))) return;
     g.disabled = true;
-    try { await api("received", { orderId: cur.id }); okHaptic(); renderHome() } catch (e) { g.disabled = false; alertBox("Не удалось сохранить. Попробуйте ещё раз.") }
-  };
+    try { await api("received", { orderId: g.dataset.got }); okHaptic(); renderHome() } catch (e) { g.disabled = false; alertBox("Не удалось сохранить. Попробуйте ещё раз.") }
+  });
   document.querySelectorAll("[data-open]").forEach((x) => x.onclick = () => { const d = x.nextElementSibling; d.hidden = !d.hidden; haptic() });
 }
 function boxStatusText(o) {
   const t = {
-    new: "Бокс принят. Мы соберём его в ближайшие дни.",
-    packed: "Бокс собран и готовится к отправке.",
-    shipped: o.delivery_type === "bts" ? `Отправлен через BTS${o.tracking_no ? ` · накладная <b>${esc(o.tracking_no)}</b>` : ""}. Получение: ${esc(o.city || "")}${o.bts_branch ? `, ${esc(o.bts_branch)}` : ""}.` : "Бокс передан в доставку по Ташкенту.",
-    received: "Бокс получен. Следующий можно собрать в новом месяце.",
-  }[o.status];
+    new: "Заказ на рассмотрении у команды OMNIS. После подтверждения начнём сборку.",
+    approved: "Заказ подтверждён и передан на сборку.",
+    packed: "Заказ собран и готовится к отправке.",
+    shipped: o.delivery_type === "bts" ? `Отправлен через BTS${o.tracking_no ? ` · накладная <b>${esc(o.tracking_no)}</b>` : ""}. Получение: ${esc(o.city || "")}${o.bts_branch ? `, ${esc(o.bts_branch)}` : ""}.` : "Передан в доставку по Ташкенту.",
+  }[o.status] || "";
   const units = o.items.reduce((a, i) => a + i.qty, 0);
-  return `<div class="num" style="font-size:40px;line-height:1">Бокс №${o.order_no}</div><div style="font-size:14px;color:#fff">${t}</div><div class="sm" style="color:var(--gb)">${o.items.length} поз. · ${units} шт · от ${dt(o.created_at)}</div>`;
+  return `<div class="sm">${t}</div><div class="sm muted">${o.items.length} поз. · ${units} шт · ${money(o.total)} сум · от ${dt(o.created_at)}</div>`;
 }
 function orderRowAthlete(o) {
   return `<div style="border-top:1px solid var(--light)"><button data-open class="act" style="padding:12px 0;border-radius:0;background:none">
-    <div class="cal"><b>${String(o.period).slice(5, 7)}</b><span>${String(o.period).slice(0, 4)}</span></div>
-    <div style="flex:1;min-width:0"><div style="font-weight:600">Бокс №${o.order_no}</div><div class="sm muted">${monthName(o.period)} · ${o.items.length} поз.</div></div>${badge(o.status)}</button>
+    <div class="cal"><b>${dayNum(o.created_at)}</b><span>${monShort(o.created_at)}</span></div>
+    <div style="flex:1;min-width:0"><div style="font-weight:600">Заказ №${o.order_no}</div><div class="sm muted">${o.items.length} поз. · ${money(o.total)} сум</div></div>${badge(o.status)}</button>
     <div hidden style="padding:0 0 10px">${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · ${i.qty} шт</div></div></div></div>`).join("")}
     ${o.reject_reason ? `<p class="sm" style="color:var(--bad);margin:6px 0 0">Причина отклонения: ${esc(o.reject_reason)}</p>` : ""}${o.cancel_reason ? `<p class="sm" style="color:var(--bad);margin:6px 0 0">Причина отмены: ${esc(o.cancel_reason)}</p>` : ""}</div></div>`;
 }
 
 async function renderCatalog() {
   if (!S.catalog || Date.now() - (S.catalogAt || 0) > 5 * 60 * 1000) { if (!S.catalog) loading(); try { await loadCatalog() } catch (e) { if (!S.catalog) { $("#app").innerHTML = errBox("Не удалось загрузить каталог."); return } } }
-  if (S.me && S.me.hasOrder && !["rejected", "cancelled"].includes(S.me.orderStatus || "")) {
-    $("#app").innerHTML = `<div class="center">${ic("box", "#193E75", 48)}<h1 class="h" style="font-size:30px">Бокс за этот месяц уже собран</h1><p class="muted" style="margin:0">Следующий бокс можно собрать в начале нового месяца. Каталог пока можно посмотреть ниже.</p></div><main class="wrap" id="plist" style="gap:8px;padding-bottom:100px"></main><div id="cartbar"></div>`;
-    S.browseOnly = true; drawList(); return;
-  }
   S.browseOnly = false;
   const cats = ["Все", ...new Set(S.catalog.map((p) => p.category))];
   const brands = ["Все", ...new Set(S.catalog.map((p) => p.brand))];
@@ -338,7 +339,7 @@ function renderCheckout() {
   S.delivery = d;
   const sum = lines.reduce((s, x) => s + x.p.price * x.q, 0);
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">Оформление</h1><p>Бокс за ${monthName(S.me.period)}</p></header>
+  <header class="page-h"><h1 class="h">Оформление</h1><p>Заказ уйдёт на подтверждение команде OMNIS</p></header>
   <main class="wrap" style="padding-bottom:30px">
     <section class="card"><h2 class="h" style="font-size:22px;margin-bottom:4px">Состав бокса</h2><div id="lines"></div></section>
     <section class="card" style="display:flex;flex-direction:column;gap:14px"><h2 class="h" style="font-size:22px">Доставка</h2>
@@ -353,7 +354,7 @@ function renderCheckout() {
       <div class="field"><label for="cm">Комментарий <span class="muted" style="font-weight:400">— необязательно</span></label><textarea class="inp" id="cm" rows="2" placeholder="Удобное время, пожелания">${esc(d.comment)}</textarea></div>
       <p class="sm muted" style="margin:0">Доставка за счёт OMNIS.</p>
     </section>
-    <button class="btn btn-navy" id="send">Отправить бокс</button>
+    <button class="btn btn-navy" id="send">Отправить заказ</button>
   </main>`;
   const drawLines = () => {
     const ls = cartLines();
@@ -373,13 +374,13 @@ function renderCheckout() {
     if (d.type === "tashkent" && !d.address.trim()) return alertBox("Укажите адрес доставки.");
     const ls = cartLines();
     if (ls.some((x) => x.q > maxQty(x.p))) return alertBox("В боксе есть товары, которых не хватает на складе. Уберите или уменьшите их — они отмечены красным.");
-    if (!(await confirmBox(`Отправить бокс: ${ls.length} поз., ${ls.reduce((a, x) => a + x.q, 0)} шт? Изменить его после отправки будет нельзя.`))) return;
+    if (!(await confirmBox(`Отправить заказ: ${ls.length} поз., ${ls.reduce((a, x) => a + x.q, 0)} шт? Изменить его после отправки будет нельзя.`))) return;
     const b = $("#send"); b.disabled = true; b.textContent = "Отправляем…";
     try {
       const r = await api("order", { items: ls.map((x) => ({ product_id: x.p.id, qty: x.q })), delivery: d });
       okHaptic(); S.cart = {}; saveCart(); S.delivery = null; S.doneNo = r.order_no; go("done");
     } catch (e) {
-      b.disabled = false; b.textContent = "Отправить бокс";
+      b.disabled = false; b.textContent = "Отправить заказ";
       if (e.code === "stock") {
         try { await loadCatalog(true) } catch (x) {}
         for (const s of (e.data && e.data.short) || []) { const p = prod(s.id); if (p) p.stock = s.stock }
@@ -387,13 +388,13 @@ function renderCheckout() {
         alertBox(`Пока вы собирали бокс, на складе изменились остатки:\n${names}\n\nЗамените или уменьшите эти товары.`);
         renderCheckout(); return;
       }
-      alertBox(e.code === "already" ? "Бокс за этот месяц уже оформлен." : e.code === "unavailable" ? "Один из товаров больше недоступен. Обновите каталог." : e.code === "delivery" ? "Проверьте данные доставки." : "Не удалось отправить. Попробуйте ещё раз.");
+      alertBox(e.code === "unavailable" ? "Один из товаров больше недоступен. Обновите каталог." : e.code === "delivery" ? "Проверьте данные доставки." : "Не удалось отправить. Попробуйте ещё раз.");
     }
   };
 }
 function renderDone() {
-  $("#app").innerHTML = `<div class="center" style="padding-top:90px">${ic("check", "#1F6B44", 56)}<h1 class="h" style="font-size:36px">Бокс №${S.doneNo} отправлен</h1>
-    <p class="muted" style="margin:0">Мы соберём бокс и сообщим в Telegram, когда он будет отправлен.</p><button class="btn btn-dark" id="home" style="max-width:260px">Мой бокс</button></div>`;
+  $("#app").innerHTML = `<div class="center" style="padding-top:90px">${ic("check", "#1F6B44", 56)}<h1 class="h" style="font-size:36px">Заказ №${S.doneNo} отправлен</h1>
+    <p class="muted" style="margin:0">Команда OMNIS рассмотрит заказ и сообщит в Telegram, когда он будет подтверждён и отправлен.</p><button class="btn btn-dark" id="home" style="max-width:260px">Мои заказы</button></div>`;
   $("#home").onclick = () => go("home");
 }
 
@@ -401,30 +402,38 @@ function renderDone() {
 async function renderOrders() {
   loading();
   let r;
+  const owner = S.role === "owner";
+  if (!S.filter) S.filter = owner ? "new" : "approved";
   try { r = await api("s_orders", { filter: S.filter }) } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить заказы."); return }
   S.counts = r.counts; S.sOrders = r.orders;
-  const owner = S.role === "owner";
-  const tabs = [["new", "Новые", r.counts.new], ["packed", "Собраны", r.counts.packed], ["shipped", "В пути", r.counts.shipped], ["done", "Архив", 0]];
+  const tabs = [["new", owner ? "На подтверждение" : "Ждут подтверждения", r.counts.new], ["approved", "К сборке", r.counts.approved], ["packed", "Собраны", r.counts.packed], ["shipped", "В пути", r.counts.shipped], ["done", "Архив", 0]];
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">Боксы атлетов</h1><p>${owner ? "Руководитель" : "Менеджер"} · ${esc(S.me.name || "")}</p></header>
+  <header class="page-h"><h1 class="h">Заказы атлетов</h1><p>${owner ? "Руководитель" : "Менеджер"} · ${esc(S.me.name || "")}</p></header>
   <div class="chips" style="padding:8px 16px 12px">${tabs.map(([k, t, n]) => `<button class="chip ${S.filter === k ? "on" : ""}" data-f="${k}">${t}${n ? ` · ${n}` : ""}</button>`).join("")}</div>
   <main class="wrap" style="padding-bottom:20px">${r.orders.length ? r.orders.map((o) => orderCardStaff(o, owner)).join("") : `<div class="card muted">Здесь пока пусто</div>`}</main>`;
   document.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { S.filter = b.dataset.f; haptic(); renderOrders() });
   document.querySelectorAll("[data-act]").forEach((b) => b.onclick = () => staffAct(b.dataset.act, b.dataset.id));
+  document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => go("invite", { athlete: { id: b.dataset.hist }, backTo: "orders" }));
   renderNav();
 }
 function orderCardStaff(o, owner) {
-  const over = owner && Number(o.over_limit) > 0;
   const deliv = o.delivery_type === "bts" ? `BTS · ${esc(o.city || "")}${o.bts_branch ? `, ${esc(o.bts_branch)}` : ""}` : `Ташкент · ${esc(o.address || "")}`;
   const acts = [];
-  if (o.status === "new") acts.push(`<button class="btn btn-dark" data-act="pack" data-id="${o.id}">Собран</button>`);
-  if (o.status === "new" || o.status === "packed") acts.push(`<button class="btn btn-navy" data-act="ship" data-id="${o.id}">${o.delivery_type === "bts" ? "Отправлен BTS" : "Передан курьеру"}</button>`);
-  if (owner && o.status === "new") acts.push(`<button class="btn btn-light" data-act="reject" data-id="${o.id}" style="color:var(--bad)">Отклонить</button>`);
+  if (owner && o.status === "new") acts.push(`<button class="btn btn-navy" data-act="approve" data-id="${o.id}">${ic("check", "#fff")} Подтвердить</button>`, `<button class="btn btn-light" data-act="reject" data-id="${o.id}" style="color:var(--bad)">Отклонить</button>`);
+  if (!owner && o.status === "new") acts.push(`<div class="sm muted" style="text-align:center;padding:4px">Ждёт подтверждения руководителя</div>`);
+  if (o.status === "approved") acts.push(`<button class="btn btn-dark" data-act="pack" data-id="${o.id}">Собран</button>`);
+  if (o.status === "approved" || o.status === "packed") acts.push(`<button class="btn btn-navy" data-act="ship" data-id="${o.id}">${o.delivery_type === "bts" ? "Отправлен BTS" : "Передан курьеру"}</button>`);
+  if (owner && o.status === "approved") acts.push(`<button class="btn btn-light" data-act="reject" data-id="${o.id}" style="color:var(--bad)">Отклонить</button>`);
   if (owner && o.status === "packed") acts.push(`<button class="btn btn-light" data-act="cancel" data-id="${o.id}" style="color:var(--bad)">Отменить</button>`);
+  const c = o.ctx;
+  const ctx = owner && c ? `<div class="sm" style="background:#E3EAF5;border-radius:12px;padding:10px 12px;line-height:1.55;color:#193E75">
+      ${c.prev ? `Предыдущий заказ: №${c.prev.order_no} от ${dt(c.prev.date)} — <b>${c.prev.days} дн. назад</b>, ${money(c.prev.total)} сум` : "<b>Первый заказ атлета</b>"}<br>
+      За ${monthName(o.period)}: ${c.month_count} заказ(а) на <b>${money(c.month_total)} сум</b> (включая этот)
+      <div style="margin-top:6px"><button class="link" data-hist="${o.athlete_id}">История атлета по месяцам →</button></div></div>` : "";
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-weight:700;font-size:16px">${esc(o.athletes?.name || "")}</div>
-      <div class="sm muted">Бокс №${o.order_no} · ${monthName(o.period)} · ${dt(o.created_at)}</div></div>${badge(o.status)}</div>
-    ${over ? `<div class="badge b-bad" style="align-self:stretch;text-align:center">Сверх лимита на ${money(o.over_limit)} сум</div>` : ""}
+      <div class="sm muted">Заказ №${o.order_no} · ${dt(o.created_at)}</div></div>${badge(o.status, true)}</div>
+    ${ctx}
     <div>${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · <b style="color:var(--dark)">${i.qty} шт</b></div>${i.stock !== null && i.stock !== undefined && i.qty > i.stock ? `<div class="sm" style="color:var(--bad);font-weight:600">На складе не хватает: есть ${i.stock} шт</div>` : ""}</div></div>${owner ? `<span class="num" style="font-size:17px;white-space:nowrap">${money(i.amount)}</span>` : ""}</div>`).join("")}</div>
     ${owner ? `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">Итого по рознице</span><span class="num" style="font-size:26px">${money(o.total)} сум</span></div>` : ""}
     <div class="sm" style="background:var(--light);border-radius:12px;padding:10px 12px;line-height:1.5">${deliv}<br>Тел.: <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>${o.athletes?.tg_username ? ` · @${esc(o.athletes.tg_username)}` : ""}${o.comment ? `<br>Комментарий: ${esc(o.comment)}` : ""}${o.tracking_no ? `<br>Накладная BTS: <b>${esc(o.tracking_no)}</b>` : ""}${o.reject_reason ? `<br><span style="color:var(--bad)">Отклонён: ${esc(o.reject_reason)}</span>` : ""}${o.cancel_reason ? `<br><span style="color:var(--bad)">Отменён: ${esc(o.cancel_reason)}</span>` : ""}</div>
@@ -447,15 +456,16 @@ function textSheet(title, label, placeholder, btn, required) {
 async function staffAct(act, id) {
   const o = S.sOrders.find((x) => x.id === id);
   let extra = {};
-  if (act === "pack") { if (!(await confirmBox(`Бокс №${o.order_no} собран?`))) return }
+  if (act === "approve") { if (!(await confirmBox(`Подтвердить заказ №${o.order_no} (${o.athletes?.name || ""}) на ${money(o.total)} сум? Он уйдёт Диёру на сборку.`))) return }
+  if (act === "pack") { if (!(await confirmBox(`Заказ №${o.order_no} собран?`))) return }
   if (act === "ship") {
     if (o.delivery_type === "bts") { const t = await textSheet(`Отправка бокса №${o.order_no}`, "Номер накладной BTS", "Например, 1234567890", "Отправлен", false); if (t === null) return; extra.tracking = t }
     else if (!(await confirmBox(`Бокс №${o.order_no} передан курьеру?`))) return;
   }
-  if (act === "reject") { const t = await textSheet(`Отклонить бокс №${o.order_no}`, "Причина — её увидит атлет", "Например: соберите бокс до 2,5 млн сум", "Отклонить", true); if (t === null) return; extra.reason = t }
+  if (act === "reject") { const t = await textSheet(`Отклонить заказ №${o.order_no}`, "Причина — её увидит атлет", "Например: прошлый бокс был недавно, закажите в следующем месяце", "Отклонить", true); if (t === null) return; extra.reason = t }
   if (act === "cancel") { const t = await textSheet(`Отменить бокс №${o.order_no}`, "Причина — её увидит атлет", "Например: товара нет в наличии", "Отменить бокс", false); if (t === null) return; extra.reason = t }
-  try { await api({ pack: "s_pack", ship: "s_ship", reject: "s_reject", cancel: "s_cancel" }[act], { orderId: id, ...extra }); okHaptic(); renderOrders() }
-  catch (e) { alertBox(e.code === "state" ? "Статус бокса уже изменился. Обновляю список." : "Не удалось сохранить."); renderOrders() }
+  try { await api({ approve: "s_approve", pack: "s_pack", ship: "s_ship", reject: "s_reject", cancel: "s_cancel" }[act], { orderId: id, ...extra }); okHaptic(); renderOrders() }
+  catch (e) { alertBox(e.code === "state" ? "Статус заказа уже изменился (возможно, его обработал Кямран). Обновляю список." : "Не удалось сохранить."); renderOrders() }
 }
 
 async function renderAthletes() {
@@ -463,13 +473,14 @@ async function renderAthletes() {
   let r;
   try { r = await api("s_athletes") } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить атлетов."); return }
   S.athletes = r.athletes;
-  const st = (a) => !a.active ? `<span class="badge b-bad">Отключён</span>` : !a.tg_id ? `<span class="badge b-wait">Не подключён</span>` : a.month ? badge(a.month.status) : `<span class="badge" style="background:var(--light);color:var(--muted)">Нет бокса</span>`;
+  const st = (a) => !a.active ? `<span class="badge b-bad">Отключён</span>` : !a.tg_id ? `<span class="badge b-wait">Не подключён</span>` : "";
+  const sub = (a) => a.month ? `Последний заказ ${dt(a.month.last.created_at)} · за ${MONTHS[+String(r.period).slice(5, 7) - 1]}: ${money(a.month.month_total)} сум` : "Заказов ещё не было";
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">Атлеты</h1><p>${r.athletes.filter((a) => a.active).length} активных · боксы за ${monthName(r.period)}</p></header>
+  <header class="page-h"><h1 class="h">Атлеты</h1><p>${r.athletes.filter((a) => a.active).length} активных · нажмите на атлета, чтобы увидеть историю</p></header>
   <main class="wrap" style="padding-bottom:20px">
     <button class="btn btn-navy" id="add">${ic("plus", "#fff")} Добавить атлета</button>
     ${r.athletes.map((a) => `<button class="act" data-a="${a.id}"><div style="flex:1;min-width:0"><div style="font-weight:700">${esc(a.name)}</div>
-      <div class="sm muted">${[a.sport, a.tg_username ? "@" + a.tg_username : null, a.phone].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</div></div>${st(a)}</button>`).join("")}
+      <div class="sm muted">${[a.sport, a.tg_username ? "@" + a.tg_username : null].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</div><div class="sm" style="color:#193E75;margin-top:2px">${sub(a)}</div></div>${st(a)}</button>`).join("")}
   </main>`;
   $("#add").onclick = () => go("add");
   document.querySelectorAll("[data-a]").forEach((b) => b.onclick = () => go("invite", { athlete: S.athletes.find((a) => a.id === b.dataset.a) }));
@@ -490,26 +501,49 @@ function renderAdd() {
     const b = $("#save"); b.disabled = true;
     try {
       const r = await api("s_add_athlete", { name, sport: $("#sp").value, phone: $("#p").value, tg_username: $("#u").value, instagram: $("#ig").value, birth_date: $("#bd").value });
-      okHaptic(); go("invite", { athlete: { name, invite: r.invite, active: true, tg_id: null, fresh: true } });
+      okHaptic(); go("invite", { athlete: { id: r.id } });
     } catch (e) { b.disabled = false; alertBox("Не удалось сохранить.") }
   };
 }
-function renderInvite() {
-  const a = S.athlete;
+async function renderInvite() {
+  loading();
+  let r;
+  try { r = await api("s_athlete_history", { athleteId: S.athlete.id }) } catch (e) { $("#app").innerHTML = errBox("Не удалось загрузить атлета."); return }
+  const a = r.athlete; S.athlete = a;
+  // группировка по месяцам (по дате заказа), в сумму идут все, кроме отклонённых и отменённых
+  const months = [];
+  for (const o of r.orders) {
+    const key = String(o.period).slice(0, 7);
+    let m = months.find((x) => x.key === key);
+    if (!m) { m = { key, period: o.period, total: 0, count: 0, orders: [] }; months.push(m) }
+    m.orders.push(o);
+    if (!["rejected", "cancelled"].includes(o.status)) { m.total += Number(o.total); m.count++ }
+  }
   $("#app").innerHTML = `
-  <header class="page-h"><h1 class="h">${esc(a.name)}</h1><p>${a.tg_id ? "Подключён к боту" : "Ещё не подключён к боту"}${a.birth_date ? ` · ДР ${dt(a.birth_date)}` : ""}</p></header>
+  <header class="page-h"><h1 class="h">${esc(a.name)}</h1><p>${[a.sport, a.tg_username ? "@" + a.tg_username : null, a.phone, a.birth_date ? `ДР ${dt(a.birth_date)}` : null].filter(Boolean).map(esc).join(" · ")}${a.tg_id ? "" : " · ещё не подключён к боту"}</p></header>
   <main class="wrap" style="padding-bottom:30px">
+    <section class="card"><h2 class="h" style="font-size:22px;margin-bottom:4px">История заказов</h2>
+      ${months.length ? months.map((m) => `<div style="border-top:1px solid var(--light)"><button data-open class="act" style="padding:12px 0;border-radius:0;background:none">
+        <div style="flex:1;min-width:0"><div style="font-weight:700;text-transform:capitalize">${monthName(m.period)}</div><div class="sm muted">${m.count} заказ(а)</div></div><span class="num" style="font-size:22px;white-space:nowrap">${money(m.total)} сум</span></button>
+        <div hidden style="padding:0 0 8px">${m.orders.map((o) => `<div style="border-top:1px dashed var(--light)"><button data-open class="act" style="padding:10px 0;border-radius:0;background:none">
+          <div class="cal"><b>${dayNum(o.created_at)}</b><span>${monShort(o.created_at)}</span></div>
+          <div style="flex:1;min-width:0"><div style="font-weight:600">№${o.order_no} · ${money(o.total)} сум</div><div class="sm muted">${o.items.length} поз. · ${o.items.reduce((x, i) => x + i.qty, 0)} шт</div></div>${badge(o.status, true)}</button>
+          <div hidden style="padding:0 0 8px">${o.items.map((i) => `<div class="item" style="padding:6px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · ${i.qty} × ${money(i.price)}</div></div></div><span class="num" style="font-size:16px;white-space:nowrap">${money(i.amount)}</span></div>`).join("")}
+          ${o.reject_reason ? `<p class="sm" style="color:var(--bad);margin:4px 0 0">Отклонён: ${esc(o.reject_reason)}</p>` : ""}</div></div>`).join("")}</div></div>`).join("")
+        : `<p class="sm muted" style="margin:6px 0 0">Заказов ещё не было.</p>`}
+    </section>
     ${!a.tg_id && a.invite ? `<section class="card" style="display:flex;flex-direction:column;gap:12px"><h2 class="h" style="font-size:22px">Ссылка-приглашение</h2>
       <p class="sm muted" style="margin:0">Отправьте ссылку атлету. Она открывает бота и привязывает его Telegram. Ссылка одноразовая — для одного аккаунта.</p>
       <div class="sm" style="background:var(--light);border-radius:12px;padding:12px;word-break:break-all">${esc(a.invite)}</div>
       <button class="btn btn-navy" id="share">${ic("link", "#fff")} Отправить в Telegram</button><button class="btn btn-light" id="copy">Скопировать</button></section>` : ""}
-    ${a.id && a.tg_id ? `<button class="btn btn-light" id="reinv">Новая ссылка (если сменил аккаунт)</button>` : ""}
-    ${a.id ? `<button class="btn btn-light" id="tog" style="color:${a.active ? "var(--bad)" : "var(--ok)"}">${a.active ? "Отключить атлета" : "Включить атлета"}</button>` : ""}
+    ${a.tg_id ? `<button class="btn btn-light" id="reinv">Новая ссылка (если сменил аккаунт)</button>` : ""}
+    <button class="btn btn-light" id="tog" style="color:${a.active ? "var(--bad)" : "var(--ok)"}">${a.active ? "Отключить атлета" : "Включить атлета"}</button>
   </main>`;
-  const sh = $("#share"); if (sh) sh.onclick = () => { const u = `https://t.me/share/url?url=${encodeURIComponent(a.invite)}&text=${encodeURIComponent("Ваша ссылка в OMNIS Box — бот для заказа ежемесячного бокса")}`; try { tg.openTelegramLink(u) } catch (e) { window.open(u) } };
+  document.querySelectorAll("[data-open]").forEach((x) => x.onclick = (e) => { e.stopPropagation(); const d = x.nextElementSibling; d.hidden = !d.hidden; haptic() });
+  const sh = $("#share"); if (sh) sh.onclick = () => { const u = `https://t.me/share/url?url=${encodeURIComponent(a.invite)}&text=${encodeURIComponent("Ваша ссылка в OMNIS Box — бот для заказа спортивного питания OMNIS")}`; try { tg.openTelegramLink(u) } catch (e) { window.open(u) } };
   const cp = $("#copy"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(a.invite); okHaptic(); cp.textContent = "Скопировано" } catch (e) { alertBox(a.invite) } };
-  const ri = $("#reinv"); if (ri) ri.onclick = async () => { if (!(await confirmBox("Отвязать текущий Telegram и создать новую ссылку?"))) return; const r = await api("s_new_invite", { athleteId: a.id }); S.athlete = { ...a, tg_id: null, invite: r.invite }; renderInvite() };
-  const tg_ = $("#tog"); if (tg_) tg_.onclick = async () => { if (!(await confirmBox(a.active ? "Отключить атлета? Он не сможет заказывать боксы." : "Включить атлета?"))) return; const r = await api("s_toggle_athlete", { athleteId: a.id }); S.athlete = { ...a, active: r.active }; okHaptic(); renderInvite() };
+  const ri = $("#reinv"); if (ri) ri.onclick = async () => { if (!(await confirmBox("Отвязать текущий Telegram и создать новую ссылку?"))) return; await api("s_new_invite", { athleteId: a.id }); renderInvite() };
+  $("#tog").onclick = async () => { if (!(await confirmBox(a.active ? "Отключить атлета? Он не сможет заказывать." : "Включить атлета?"))) return; await api("s_toggle_athlete", { athleteId: a.id }); okHaptic(); renderInvite() };
 }
 
 // ---------- клавиатура ----------
@@ -556,7 +590,7 @@ async function boot() {
   try {
     const r = await api("init");
     if (r.role === "athlete") { S.role = "athlete"; S.me = r; S.view = "home"; try { await loadCatalog() } catch (e) {} render(); return }
-    if (r.role === "owner" || r.role === "ops") { S.role = r.role; S.me = r; S.view = "orders"; try { await loadCatalog() } catch (e) {} render(); return }
+    if (r.role === "owner" || r.role === "ops") { S.role = r.role; S.me = r; S.view = "orders"; S.filter = r.role === "owner" ? "new" : "approved"; try { await loadCatalog() } catch (e) {} render(); return }
     $("#app").innerHTML = `<div class="center"><h1 class="h" style="font-size:30px">Нет доступа</h1><p class="muted" style="margin:0">Попросите у OMNIS личную ссылку-приглашение и откройте её в Telegram.</p></div>`;
   } catch (e) { $("#app").innerHTML = errBox(e.status === 401 ? "Сессия устарела. Закройте и снова откройте приложение." : "Не удалось загрузить данные.") }
 }
