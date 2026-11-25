@@ -418,6 +418,7 @@ async function renderOrders() {
   <main class="wrap" style="padding-bottom:20px">${r.orders.length ? r.orders.map((o) => orderCardStaff(o, owner)).join("") : `<div class="card muted">Здесь пока пусто</div>`}</main>`;
   document.querySelectorAll("[data-f]").forEach((b) => b.onclick = () => { S.filter = b.dataset.f; haptic(); renderOrders() });
   document.querySelectorAll("[data-act]").forEach((b) => b.onclick = () => staffAct(b.dataset.act, b.dataset.id));
+  document.querySelectorAll("[data-billz]").forEach((b) => b.onclick = () => billzSale(b.dataset.billz, b));
   document.querySelectorAll("[data-hist]").forEach((b) => b.onclick = () => go("invite", { athlete: { id: b.dataset.hist }, backTo: "orders" }));
   renderNav();
 }
@@ -435,6 +436,7 @@ function orderCardStaff(o, owner) {
   if (o.status === "approved" || o.status === "packed") acts.push(`<button class="btn btn-navy" data-act="ship" data-id="${o.id}">${o.delivery_type === "bts" ? "Отправлен BTS" : "Передан курьеру"}</button>`);
   if (owner && o.status === "approved") acts.push(`<button class="btn btn-light" data-act="reject" data-id="${o.id}" style="color:var(--bad)">Отклонить</button>`);
   if (owner && o.status === "packed") acts.push(`<button class="btn btn-light" data-act="cancel" data-id="${o.id}" style="color:var(--bad)">Отменить</button>`);
+  if (owner && ["shipped", "received"].includes(o.status) && !o.billz_order_no) acts.push(`<button class="btn btn-dark" data-billz="${o.id}">🧾 Провести в BILLZ</button>`);
   const c = o.ctx;
   const ctx = owner && c ? `<div class="sm" style="background:#E3EAF5;border-radius:12px;padding:10px 12px;line-height:1.55;color:#193E75">
       ${c.prev ? `Предыдущий заказ: №${c.prev.order_no} от ${dt(c.prev.date)} — <b>${c.prev.days} дн. назад</b>, ${money(c.prev.total)} сум` : "<b>Первый заказ атлета</b>"}<br>
@@ -446,8 +448,37 @@ function orderCardStaff(o, owner) {
     ${ctx}
     <div>${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · <b style="color:var(--dark)">${i.qty} шт</b></div>${i.stock !== null && i.stock !== undefined && i.qty > i.stock ? `<div class="sm" style="color:var(--bad);font-weight:600">На складе не хватает: есть ${i.stock} шт</div>` : ""}</div></div>${owner ? `<span class="num" style="font-size:17px;white-space:nowrap">${money(i.amount)}</span>` : ""}</div>`).join("")}</div>
     ${owner ? `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">Итого по рознице</span><span class="num" style="font-size:26px">${money(o.total)} сум</span></div>` : ""}
-    <div class="sm" style="background:var(--light);border-radius:12px;padding:10px 12px;line-height:1.5">${deliv}<br>Тел.: <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>${o.athletes?.tg_username ? ` · @${esc(o.athletes.tg_username)}` : ""}${o.comment ? `<br>Комментарий: ${esc(o.comment)}` : ""}${o.tracking_no ? `<br>Накладная BTS: <b>${esc(o.tracking_no)}</b>` : ""}${o.reject_reason ? `<br><span style="color:var(--bad)">Отклонён: ${esc(o.reject_reason)}</span>` : ""}${o.cancel_reason ? `<br><span style="color:var(--bad)">Отменён: ${esc(o.cancel_reason)}</span>` : ""}${billzLine(o)}</div>
+    <div class="sm" style="background:var(--light);border-radius:12px;padding:10px 12px;line-height:1.5">${deliv}<br>Тел.: <a href="tel:${esc(String(o.phone).replace(/[^\d+]/g, ""))}">${esc(o.phone)}</a>${o.athletes?.tg_username ? ` · @${esc(o.athletes.tg_username)}` : ""}${o.comment ? `<br>Комментарий: ${esc(o.comment)}` : ""}${o.tracking_no ? `<br>Накладная BTS: <b>${esc(o.tracking_no)}</b>` : ""}${o.reject_reason ? `<br><span style="color:var(--bad)">Отклонён: ${esc(o.reject_reason)}</span>` : ""}${o.cancel_reason ? `<br><span style="color:var(--bad)">Отменён: ${esc(o.cancel_reason)}</span>` : ""}${billzLine(o)}${owner && o.billz_error && !o.billz_order_no ? `<br><span style="color:var(--bad)">Последняя попытка BILLZ: ${esc(o.billz_error)}</span>` : ""}</div>
     ${acts.length ? `<div style="display:flex;flex-direction:column;gap:8px">${acts.join("")}</div>` : ""}</section>`;
+}
+// Проведение заказа в BILLZ: сначала предпросмотр чека, продажа — только после подтверждения
+async function billzSale(id, btn) {
+  btn.disabled = true; const label = btn.textContent; btn.textContent = "Готовлю чек…";
+  let p;
+  try { p = await api("s_billz_preview", { orderId: id }) }
+  catch (e) { btn.disabled = false; btn.textContent = label; return alertBox(`BILLZ недоступен: ${(e.data && e.data.message) || "попробуйте позже"}`) }
+  btn.disabled = false; btn.textContent = label;
+  const ok = !p.problems.length;
+  const bg = document.createElement("div"); bg.className = "sheet-bg";
+  bg.innerHTML = `<div class="sheet" role="dialog" aria-label="Чек BILLZ" style="display:flex;flex-direction:column;gap:12px">
+    <h2 class="h" style="font-size:26px;margin:0">Чек BILLZ · заказ №${p.order_no}</h2>
+    <div class="sm muted">${esc(p.athlete)} · склад Omnis Warehouse · отгрузка под реализацию</div>
+    <div>${p.lines.map((l) => `<div class="item" style="padding:7px 0"><div style="min-width:0"><div class="n" style="font-size:13px">${esc(l.billz_name)}</div><div class="d">${l.qty} × ${money(l.price)}${l.price !== l.order_price ? ` <b style="color:var(--wait)">(в заказе ${money(l.order_price)})</b>` : ""}</div></div><span class="num" style="font-size:17px;white-space:nowrap">${money(l.amount)}</span></div>`).join("")}</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">Итого в BILLZ${p.total !== p.order_total ? ` (в заказе ${money(p.order_total)})` : ""}</span><span class="num" style="font-size:28px">${money(p.total)} сум</span></div>
+    ${ok ? "" : `<div class="sm" style="background:var(--badbg);color:var(--bad);border-radius:12px;padding:10px 12px;line-height:1.5">${p.problems.map(esc).join("<br>")}</div>`}
+    <button class="btn btn-navy" id="bzok" ${ok ? "" : "disabled"}>Провести продажу</button><button class="btn btn-light" id="bzno">Отмена</button></div>`;
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.onclick = (e) => { if (e.target === bg) close() };
+  $("#bzno").onclick = close;
+  $("#bzok").onclick = async () => {
+    const b = $("#bzok"); b.disabled = true; b.textContent = "Провожу в BILLZ… до минуты";
+    $("#bzno").disabled = true; bg.onclick = null;
+    try {
+      const r = await api("s_billz_sell", { orderId: id });
+      close(); okHaptic(); alertBox(`Проведено в BILLZ. Чек #${r.order_number}, ${money(r.total)} сум.`); renderOrders();
+    } catch (e) { close(); alertBox(`Не проведено: ${(e.data && e.data.message) || "ошибка связи"}`); renderOrders() }
+  };
 }
 function textSheet(title, label, placeholder, btn, required) {
   return new Promise((res) => {
