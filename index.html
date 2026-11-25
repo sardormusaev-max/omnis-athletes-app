@@ -137,6 +137,10 @@ const STATUS = {
 };
 const STAFF_STATUS = { new: "Ждёт подтверждения", approved: "К сборке" };
 const badge = (s, staff) => `<span class="badge ${STATUS[s][1]}">${staff && STAFF_STATUS[s] ? STAFF_STATUS[s] : STATUS[s][0]}</span>`;
+// строка о проведении в Billz — только для полученных заказов (видят сотрудники)
+const billzLine = (o) => o.status !== "received" ? "" : o.billz_order_no
+  ? `<div class="sm" style="color:#1F6B44;font-weight:600">🧾 Чек BILLZ: #${esc(o.billz_order_no)}${o.billz_sold_at ? ` · ${new Date(o.billz_sold_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}</div>`
+  : `<div class="sm" style="color:var(--bad);font-weight:600">🧾 Чек BILLZ: не проведён</div>`;
 const dayNum = (d) => new Date(d).getDate();
 const monShort = (d) => ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"][new Date(d).getMonth()];
 
@@ -437,7 +441,7 @@ function orderCardStaff(o, owner) {
       <div style="margin-top:6px"><button class="link" data-hist="${o.athlete_id}">История атлета по месяцам →</button></div></div>` : "";
   return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-weight:700;font-size:16px">${esc(o.athletes?.name || "")}</div>
-      <div class="sm muted">Заказ №${o.order_no} · ${dt(o.created_at)}</div></div>${badge(o.status, true)}</div>
+      <div class="sm muted">Заказ №${o.order_no} · ${dt(o.created_at)}</div>${billzLine(o)}</div>${badge(o.status, true)}</div>
     ${ctx}
     <div>${o.items.map((i) => `<div class="item" style="padding:7px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · <b style="color:var(--dark)">${i.qty} шт</b></div>${i.stock !== null && i.stock !== undefined && i.qty > i.stock ? `<div class="sm" style="color:var(--bad);font-weight:600">На складе не хватает: есть ${i.stock} шт</div>` : ""}</div></div>${owner ? `<span class="num" style="font-size:17px;white-space:nowrap">${money(i.amount)}</span>` : ""}</div>`).join("")}</div>
     ${owner ? `<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="sm muted">Итого по рознице</span><span class="num" style="font-size:26px">${money(o.total)} сум</span></div>` : ""}
@@ -543,7 +547,7 @@ async function renderInvite() {
         <div style="flex:1;min-width:0"><div style="font-weight:700;text-transform:capitalize">${monthName(m.period)}</div><div class="sm muted">${m.count} заказ(а)</div></div><span class="num" style="font-size:22px;white-space:nowrap">${money(m.total)} сум</span></button>
         <div hidden style="padding:0 0 8px">${m.orders.map((o) => `<div style="border-top:1px dashed var(--light)"><button data-open class="act" style="padding:10px 0;border-radius:0;background:none">
           <div class="cal"><b>${dayNum(o.created_at)}</b><span>${monShort(o.created_at)}</span></div>
-          <div style="flex:1;min-width:0"><div style="font-weight:600">№${o.order_no} · ${money(o.total)} сум</div><div class="sm muted">${o.items.length} поз. · ${o.items.reduce((x, i) => x + i.qty, 0)} шт</div></div>${badge(o.status, true)}</button>
+          <div style="flex:1;min-width:0"><div style="font-weight:600">№${o.order_no} · ${money(o.total)} сум</div><div class="sm muted">${o.items.length} поз. · ${o.items.reduce((x, i) => x + i.qty, 0)} шт</div>${billzLine(o)}</div>${badge(o.status, true)}</button>
           <div hidden style="padding:0 0 8px">${o.items.map((i) => `<div class="item" style="padding:6px 0"><div style="display:flex;gap:8px;align-items:center;min-width:0">${thumb(i.product_id, i.name, "thumb sm")}<div><div class="n" style="font-size:13px">${esc(i.name)}</div><div class="d">${esc(i.size)} · ${i.qty} × ${money(i.price)}</div></div></div><span class="num" style="font-size:16px;white-space:nowrap">${money(i.amount)}</span></div>`).join("")}
           ${o.reject_reason ? `<p class="sm" style="color:var(--bad);margin:4px 0 0">Отклонён: ${esc(o.reject_reason)}</p>` : ""}</div></div>`).join("")}</div></div>`).join("")
         : `<p class="sm muted" style="margin:6px 0 0">Заказов ещё не было.</p>`}
